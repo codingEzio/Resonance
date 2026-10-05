@@ -1,0 +1,5 @@
+Play your own media offline. Import files through Android's file picker, build a queue, browse embedded chapters and resume each file from its last position.
+
+Choose light, dark or system appearance, with several font options. English, Traditional Chinese and Simplified Chinese are included. An optional LAN shelf can stream or copy media from your own computer. No account or hosted service is required.
+
+Codec support depends on your Android device. No media files or cover collections are included. Network access is only needed for the optional shelf connection.

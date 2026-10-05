@@ -1,0 +1,1 @@
+Offline media player with chapters, queues and a live waveform

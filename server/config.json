@@ -1,0 +1,11 @@
+{
+  "libraries": [],
+  "maxFiles": 10000,
+  "maxStreams": 4,
+  "bind": "127.0.0.1",
+  "port": 12345,
+  "displayNames": null,
+  "stateDirectory": "Local/shelf",
+  "ffprobe": "ffprobe",
+  "shasum": "shasum"
+}

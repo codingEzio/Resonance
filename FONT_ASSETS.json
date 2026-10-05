@@ -1,0 +1,52 @@
+{
+  "fonts": [
+    {
+      "file": "app/src/main/res/font/doto.ttf",
+      "source": "google/fonts commit 1c587f2eed62cb257055540ac2a15f356070414f",
+      "sha256": "6f4fe7d37853b91df3698daa84cde2dbe1c9695d88c986e6510134910337d426",
+      "bytes": 456924
+    },
+    {
+      "file": "app/src/main/res/font/compact.ttf",
+      "source": "app/src/main/assets/licenses/compact/provenance.json",
+      "sha256": "74adf4919c690e61aa7bdd4c369a6f5c84029413a7da5e85d687ea7fa6b502e7",
+      "bytes": 4974952
+    },
+    {
+      "file": "app/src/main/res/font/roboto.ttf",
+      "source": "google/fonts commit 809e4d8b8d7e9364a914909bb777679606c178b8",
+      "sha256": "d7598e12c5dbef095ff8272cfc55da0250bd07fbdecbac8a530b9b277872a134",
+      "bytes": 488584
+    },
+    {
+      "file": "app/src/main/res/font/roboto_condensed.ttf",
+      "source": "google/fonts commit 809e4d8b8d7e9364a914909bb777679606c178b8",
+      "sha256": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+      "bytes": 371616
+    },
+    {
+      "file": "app/src/main/res/font/roboto_mono.ttf",
+      "source": "google/fonts commit 809e4d8b8d7e9364a914909bb777679606c178b8",
+      "sha256": "66a80e79d17e4c7cabd162e2916578a4cc08fd19eef6e2a643305eae9c567b2b",
+      "bytes": 183700
+    },
+    {
+      "file": "app/src/main/res/font/geist.ttf",
+      "source": "https://raw.githubusercontent.com/vercel/geist-font/a73329da8fc62afc917f796555202e4997f79b7c/packages/next/dist/fonts/geist-sans/Geist-Variable.ttf",
+      "sha256": "73894e0448cae90a92b6c2f8732b7bb9acb7b94c418bff559dad4a18e1de9659",
+      "bytes": 169056
+    },
+    {
+      "file": "app/src/main/res/font/geist_mono.ttf",
+      "source": "https://raw.githubusercontent.com/vercel/geist-font/a73329da8fc62afc917f796555202e4997f79b7c/packages/next/dist/fonts/geist-mono/GeistMono-Variable.ttf",
+      "sha256": "87c2aff9723544a9adaea19d92e42a33705c9723624801b6e0224c2206a6af0d",
+      "bytes": 171968
+    },
+    {
+      "file": "app/src/main/res/font/geist_pixel.ttf",
+      "source": "https://raw.githubusercontent.com/vercel/geist-pixel-font/bd5f6cca54c0b179115d8a3fd89385db607034c2/fonts/ttf/GeistPixel-Square.ttf",
+      "sha256": "38f29cdeba17ef142b203821c0be9d4449654cf6a3bc422939c5b7b6f1db283a",
+      "bytes": 93932
+    }
+  ]
+}

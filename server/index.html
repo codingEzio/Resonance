@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Resonance · Mac Library</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>RESONANCE<span aria-hidden="true">●</span></h1>
+        <p id="tagline">MAC LIBRARY · PRIVATE LAN</p>
+      </div>
+      <div
+        class="preferences"><select id="language" aria-label="Language"><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option></select><select id="theme" aria-label="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select><select id="font" aria-label="Typography"><option value="nothing">Nothing</option><option value="pixel">Pixel</option><option value="system">System</option></select></div>
+    </header>
+    <main>
+      <section id="pairing">
+        <p class="eyebrow" data-i18n="private">YOUR MUSIC, YOUR DEVICES</p>
+        <h2 data-i18n="pairTitle">連接你的 Mac</h2>
+        <p data-i18n="pairHint">在 Mac 開啟這個頁面取得連線金鑰，再於手機貼上。</p>
+        <form
+          id="pairForm"><label for="key" data-i18n="key">連線金鑰</label><input id="key" type="password" autocomplete="off" required><button data-i18n="connect">連接</button></form>
+      </section>
+      <section id="library" hidden>
+        <div
+          class="toolbar"><div><h2 data-i18n="library">Mac 媒體庫</h2><p id="status" role="status"></p></div><button class="secondary" id="refresh" data-i18n="refresh">重新掃描</button></div>
+        <div
+          class="connection"><a id="connectApp" class="button" data-i18n="openApp">連接 Resonance App</a><details><summary data-i18n="connection">連線資訊</summary><label data-i18n="address">Mac 位址</label><input id="address" readonly><label data-i18n="key">連線金鑰</label><input id="copyKey" type="password" readonly><button class="secondary" id="reveal" data-i18n="reveal">顯示／隱藏</button><p data-i18n="lanHint">手機與 Mac 需在同一個受信任的區域網路。Mac 關閉後，手機已下載的檔案仍可播放。</p></details></div>
+        <div
+          class="filters"><input id="search" type="search" autocomplete="off" aria-label="Search"><select id="folder" aria-label="Folder"><option value="">All</option></select><span id="count" class="technical"></span></div>
+        <div id="tableViewport">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="title">名稱</th>
+                <th data-i18n="length">長度</th>
+                <th data-i18n="actions">操作</th>
+              </tr>
+            </thead>
+            <tbody id="items"></tbody>
+          </table>
+          <p id="empty" hidden data-i18n="empty">沒有符合的檔案</p>
+        </div>
+        <p class="footnote"
+          data-i18n="dedupeHint">相同檔案只顯示一次。使用 App 下載可核對指紋、續傳並避免重複儲存；來源檔案保留原處。</p>
+      </section>
+      <p id="error" role="alert" hidden></p>
+    </main>
+    <footer id="player"
+      hidden><div><strong id="playingTitle"></strong><p data-i18n="streamHint">Mac 串流 · 瀏覽器音量預設 30%</p></div><audio id="audio" controls preload="none"></audio><button class="secondary" id="stop" data-i18n="stop">關閉</button></footer>
+  </body>
+</html>

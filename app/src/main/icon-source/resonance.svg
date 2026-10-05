@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <title>Resonance pixel play disc</title>
+  <desc>At 16 px, read a playing record, distinguished by a stepped pixel disc and a negative-space play key. Transparent semantic mark; the Android launcher owns the enclosure.</desc>
+  <path id="symbol" fill="#F3F1EB" fill-rule="evenodd" d="M42,24 L66,24 L66,28 L74,28 L74,34 L80,34 L80,42 L84,42 L84,66 L80,66 L80,74 L74,74 L74,80 L66,80 L66,84 L42,84 L42,80 L34,80 L34,74 L28,74 L28,66 L24,66 L24,42 L28,42 L28,34 L34,34 L34,28 L42,28 Z M46,40 L50,40 L50,44 L56,44 L56,48 L62,48 L62,52 L68,52 L68,56 L62,56 L62,60 L56,60 L56,64 L50,64 L50,68 L46,68 Z"/>
+</svg>

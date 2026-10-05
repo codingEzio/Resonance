@@ -1,0 +1,1 @@
+First public edition. Offline import and playback, queues, chapters, per-file resume, waveform, themes and optional LAN shelf.

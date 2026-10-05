@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "source_repository": "https://github.com/google/fonts",
+  "source_commit": "809e4d8b8d7e9364a914909bb777679606c178b8",
+  "license": "SIL Open Font License 1.1",
+  "retrieved": "2026-09-14",
+  "derivation": {
+    "tool": "fontTools pyftsubset",
+    "arguments": ["--unicodes=*", "--flavor=woff2", "--layout-features=*"],
+    "coverage": "Latin, Greek, Cyrillic, Vietnamese and related upstream glyphs; no CJK"
+  },
+  "files": {
+    "Roboto.woff2": "4cec1cc5c3583d19bc50527ee1772cf9e1317d8f534de0b9a75da6c2e97d6b77",
+    "RobotoCondensed.woff2": "876043ccab2873da796e289e9cd13ee0de7896c340b9cabefc23dca5f02dd56f",
+    "RobotoMono.woff2": "d6c8d5526824d2915c5197cb95da11126622ae298daf46e75a1f85e75823ccd5"
+  }
+}
