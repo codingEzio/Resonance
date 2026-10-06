@@ -12,6 +12,15 @@ Import files through Android's file picker. Resonance keeps imported copies in
 its private storage. User-selected LAN connections are optional; existing local
 files can play offline. Codec support depends on the device.
 
+## Install
+
+Download the signed `Resonance-v0.9.1.apk` from [GitHub Releases](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1).
+Allow installation from your browser or file manager when Android asks.
+The release includes SHA-256 checksums and its public signing certificate fingerprint.
+See [RELEASE.md](RELEASE.md) for verification and the release procedure.
+F-Droid inclusion is [under review](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310);
+it is not yet available from the official F-Droid repository.
+
 ## Build
 
 Install a free JDK 17 distribution, Android SDK platform 37 and build tools 36.0.0.
@@ -21,7 +30,9 @@ Set ANDROID_HOME to the SDK directory, then run:
 ./gradlew -Presonance.profile=portable :app:assembleRelease
 ```
 
-The release APK is unsigned. F-Droid builds and signs its own distribution.
+This command produces an unsigned APK. Published GitHub APKs use the retained
+developer release key. F-Droid is requested to verify a reproducible rebuild and
+use the same signature; this requires its acceptance and publication checks.
 For local development, use `./gradlew :app:assembleDebug`; its application ID has
 `.catalog` appended. Public release ID: `io.github.codingezio.resonance`.
 The public application is separate from any privately distributed development app.
@@ -50,6 +61,7 @@ The shelf does not start until explicitly run, and initially serves no files.
 ## Privacy and licensing
 
 See [PRIVACY.md](PRIVACY.md), [DEPENDENCIES.md](DEPENDENCIES.md) and [LICENSE](LICENSE).
+The current automated checks and their limits are in [QUALITY.md](QUALITY.md).
 Program source and original app artwork: GPL-3.0-or-later. Fonts and third-party
 components retain their own licenses and notices. No media collection or cover
 art is included. Supply files you are entitled to use.

@@ -9,6 +9,14 @@
 透過 Android 檔案挑選器匯入媒體，副本儲存在 App 私人空間；已有本機檔案可離線播放。
 解碼格式依裝置而定。不隨附媒體收藏或第三方封面。
 
+## 安裝
+
+從 [GitHub Releases](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1)
+下載正式簽署的 `Resonance-v0.9.1.apk`；Android 詢問時，允許瀏覽器或檔案管理員安裝。
+發布頁提供 SHA-256 校驗碼與公開簽章憑證指紋，驗證方式見 [RELEASE.md](RELEASE.md)。
+F-Droid 正在[送審](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)，
+目前尚未在官方儲存庫上架。
+
 ## 建置
 
 安裝自由軟體版本的 JDK 17、Android SDK platform 37 與 build tools 36.0.0，
@@ -18,7 +26,8 @@
 ./gradlew -Presonance.profile=portable :app:assembleRelease
 ```
 
-release APK 未簽章，由 F-Droid 自行建置及簽章。開發版使用
+這個命令產生未簽章 APK。GitHub 正式 APK 使用保留的開發者發布金鑰；
+F-Droid 已改為申請重新建置比對後沿用相同簽章，仍需通過審核與發布驗證。開發版使用
 `./gradlew :app:assembleDebug`，ID 會加上 `.catalog`。
 公開版 ID 為 `io.github.codingezio.resonance`，與私人開發版本分開，
 不會自動讀取另一個 App 的私人資料。建置需下載 Google Maven／Maven Central 依賴。
@@ -46,3 +55,4 @@ Android 雲端備份已停用；解除安裝會刪除 App 私人資料。
 
 程式與原創圖示採 GPL-3.0-or-later；字型與第三方元件保留各自授權。
 詳見 [LICENSE](LICENSE)、[DEPENDENCIES.md](DEPENDENCIES.md)、[PRIVACY.md](PRIVACY.md)。
+目前自動品質檢查與限制見 [QUALITY.md](QUALITY.md)。

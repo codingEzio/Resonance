@@ -17,6 +17,14 @@ remain in force; see the packaged notices under app/src/main/assets/licenses.
 | AndroidX Test runner / extension | 1.7.0 / 1.3.0 | Apache-2.0 / test only |
 | JDK | 17 | Free OpenJDK distribution, build only |
 | Android SDK / Build Tools | 37 / 36.0.0 | Official Android SDK, build only |
+| Release signing Build Tools | 34.0.0 | Official Google Android SDK archive; Apache-2.0 tools, separately installed; apksigner/zipalign only |
+| apksigcopier | 1.1.1 | AGPL-3.0-or-later / PyPI and obfusk/apksigcopier; release verification only, not bundled |
+
+Release signing uses Build Tools 34.0.0 because newer apksigner alignment changes
+can prevent signature copying with the checked reproducibility tools. Build
+Tools 36.0.0 remains the Android build version. These tools require a local JDK;
+downloading them requires network access, signing itself does not. The release
+helper uses separately installed Deno (MIT). See [RELEASE.md](RELEASE.md).
 
 All runtime Maven dependencies use Google Maven or Maven Central. No Play
 Services, Firebase, ad SDK, proprietary codec or FFmpeg binary is bundled.
