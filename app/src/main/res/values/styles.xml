@@ -4,5 +4,5 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
-    <color name="icon_background">#F3F1EB</color>
+    <color name="icon_background">#171717</color>
 </resources>

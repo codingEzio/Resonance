@@ -1,5 +1,7 @@
 # Release and signature verification
 
+The current source candidate is 0.9.2/code11 and has not been signed or published. The 0.9.1 instructions, tag and certificate below describe the existing release and must remain unchanged.
+
 Release APKs are available at <https://github.com/codingEzio/Resonance/releases>.
 Use the APK and `SHA256SUMS` from the same release. On macOS/Linux, in the
 download directory, run `shasum -a 256 -c SHA256SUMS`. Check the signing identity

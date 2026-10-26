@@ -1,6 +1,6 @@
 {
   "libraries": [],
-  "stateDirectory": "Local/portable-shelf",
+  "stateDirectory": ".",
   "displayNames": null,
   "bind": "127.0.0.1"
 }

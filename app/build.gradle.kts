@@ -28,8 +28,8 @@ android {
         applicationId = "io.github.codingezio.resonance"
         minSdk = 29
         targetSdk = 37
-        versionCode = 10
-        versionName = "0.9.1"
+        versionCode = 11
+        versionName = "0.9.2"
         buildConfigField("String", "PRESENTATION_PROFILE", "\"$presentationProfile\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

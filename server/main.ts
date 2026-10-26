@@ -1,13 +1,14 @@
 import { parseRange, privateHost, type SourceRecord } from "./core.ts";
 import { loadShelfConfig, projectFile } from "./config.ts";
+import { pathToFileURL } from "node:url";
 import { ShelfCatalog } from "./catalog.ts";
 import { FileCatalogStore } from "./catalog-store.ts";
 import { discoverMedia, inspectMedia } from "./media-source.ts";
 
 const config = await loadShelfConfig();
 const port = config.port;
-const stateDirectory = projectFile(config.stateDirectory + "/");
-await Deno.mkdir(stateDirectory, { recursive: true });
+const stateDirectory = pathToFileURL(config.stateDirectory + "/");
+await Deno.mkdir(stateDirectory, { recursive: true, mode: 0o700 });
 const secretPath = new URL("access-key", stateDirectory);
 let secret: string;
 try {

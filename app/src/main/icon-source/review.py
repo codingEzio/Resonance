@@ -18,6 +18,9 @@ OUT = PROJECT / "Local/evidence/icons"
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 path = ET.parse(OWNER / "resonance.svg").find("{http://www.w3.org/2000/svg}path")
 data = path.attrib["d"]
+accent_data = ET.parse(OWNER / "resonance.svg").findall("{http://www.w3.org/2000/svg}path")[1].attrib["d"]
+accent_contour = [tuple(map(float, pair)) for pair in re.findall(r"[ML]([0-9]+),([0-9]+)", accent_data)]
+assert max(math.hypot(x - 54, y - 54) for x, y in accent_contour) <= 33
 contours = [[tuple(map(float, pair)) for pair in re.findall(r"[ML]([0-9]+),([0-9]+)", chunk)] for chunk in data.split("Z") if chunk.strip()]
 assert max(math.hypot(x - 54, y - 54) for x, y in contours[0]) <= 33, "Outside adaptive safe circle"
 parser = argparse.ArgumentParser()
@@ -25,19 +28,25 @@ parser.add_argument("--compile", action="store_true")
 args = parser.parse_args()
 for name, color in [("ic_resonance", "@color/icon_symbol"), ("ic_resonance_foreground", "@color/icon_symbol"), ("ic_resonance_monochrome", "#FFFFFFFF")]:
     target = RES / f"drawable/{name}.xml"
+    extra = f'    <path android:fillColor="#FF202B" android:pathData="{accent_data}" />\n' if name != "ic_resonance_monochrome" else ""
     if args.compile:
-        target.write_text(f'<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">\n    <path android:fillColor="{color}" android:fillType="evenOdd" android:pathData="{data}" />\n</vector>\n')
+        target.write_text(f'<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">\n    <path android:fillColor="{color}" android:fillType="evenOdd" android:pathData="{data}" />\n{extra}</vector>\n')
     adopted = ET.parse(target).find("path")
     assert adopted.attrib[ANDROID + "pathData"] == data, f"SVG drift: {target}"
     assert adopted.attrib[ANDROID + "fillType"] == "evenOdd"
     assert adopted.attrib[ANDROID + "fillColor"] == color
+    layers = ET.parse(target).findall("path")
+    assert len(layers) == (1 if name == "ic_resonance_monochrome" else 2)
+    if name != "ic_resonance_monochrome":
+        assert layers[1].attrib[ANDROID + "pathData"] == accent_data
+        assert layers[1].attrib[ANDROID + "fillColor"] == "#FF202B"
 for version in (26, 33):
     adaptive = ET.parse(RES / f"mipmap-anydpi-v{version}/ic_resonance.xml")
     assert adaptive.find("foreground").attrib[ANDROID + "drawable"] == "@drawable/ic_resonance_foreground"
     if version == 33:
         assert adaptive.find("monochrome").attrib[ANDROID + "drawable"] == "@drawable/ic_resonance_monochrome"
 
-def render(size, ink, field, mask):
+def render(size, ink, field, mask, accent=False):
     scale = size * 4 / 108
     alpha = Image.new("L", (size * 4, size * 4))
     draw = ImageDraw.Draw(alpha)
@@ -49,6 +58,8 @@ def render(size, ink, field, mask):
         return result.resize((size, size), Image.Resampling.LANCZOS)
     result = Image.new("RGB", alpha.size, field)
     result.paste(ink, mask=alpha)
+    if accent:
+        ImageDraw.Draw(result).polygon([(x * scale, y * scale) for x, y in accent_contour], fill="#FF202B")
     enclosure = Image.new("L", alpha.size, 0)
     draw = ImageDraw.Draw(enclosure)
     if mask == "circle":
@@ -64,20 +75,21 @@ OUT.mkdir(parents=True, exist_ok=True)
 sheet = Image.new("RGB", (1000, 1016), "#D2D0CC")
 d = ImageDraw.Draw(sheet)
 d.text((24, 15), "RESONANCE / pixel play disc / Android adaptive + monochrome", fill="#171717")
-modes = [("light", "#171717", "#F3F1EB"), ("dark", "#F3F1EB", "#171717"), ("themed light", "#233728", "#D8E8D1"), ("themed dark", "#D8E8D1", "#233728")]
+modes = [("light surroundings", "#F3F1EB", "#171717"), ("dark surroundings", "#F3F1EB", "#171717"), ("themed light", "#233728", "#D8E8D1"), ("themed dark", "#D8E8D1", "#233728")]
 for row, (label, ink, field) in enumerate(modes):
+    accent = row < 2
     y = 48 + row * 188
     d.text((24, y), label, fill="#171717")
     for col, mask in enumerate(("square", "rounded", "circle")):
         x = 24 + col * 168
-        sheet.paste(render(108, ink, field, mask), (x, y + 22), render(108, ink, field, mask))
+        sheet.paste(render(108, ink, field, mask, accent), (x, y + 22), render(108, ink, field, mask, accent))
         d.text((x, y + 136), mask + " / 108px", fill="#171717")
     for col, background in enumerate(("#FFFFFF", "#242424", "#898989", "#A4B9BB")):
         x = 534 + col * 112
         d.rectangle((x, y + 22, x + 100, y + 172), fill=background)
         # True 1x and 2x delivery-size previews; no nearest-neighbor enlargement.
         for size, offset in ((16, 30), (32, 64), (64, 108)):
-            preview = render(size, ink, field, "circle")
+            preview = render(size, ink, field, "circle", accent)
             sheet.paste(preview, (x + (100 - size) // 2, y + offset), preview)
         d.text((x, y + 174), "16 / 32 / 64", fill="#171717")
 d.text((24, 834), "Transparent semantic mark / notification alpha / 16 and 32px at 1x and 2x", fill="#171717")
