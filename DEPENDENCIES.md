@@ -32,8 +32,11 @@ Media decoding and SQLite are Android platform services.
 
 Eight bundled font files are enumerated with SHA-256 in FONT_ASSETS.json:
 Geist Pixel, Geist, Geist Mono, Doto, Roboto, Roboto Condensed, Roboto Mono and
-DeparturePixelZh Compact. They use SIL OFL-1.1; the modified Compact face includes
-Departure Mono, Cubic 11 and Nerd Fonts glyphs with their component notices.
+DeparturePixelZh Compact. Their source distributions include SIL OFL-1.1; the
+modified Compact face includes Departure Mono, Cubic 11 and Nerd Fonts glyphs
+with their component notices. The exact Roboto Condensed font is distributed
+by Google Fonts with OFL-1.1, while its embedded metadata also names Apache-2.0;
+both notices are included.
 All original notices, attribution, reserved-name statements and pinned source
 provenance are retained under app/src/main/assets/licenses. These non-code assets
 are not relicensed under the app's GPL. No proprietary Nothing fonts are included.
@@ -41,4 +44,4 @@ are not relicensed under the app's GPL. No proprietary Nothing fonts are include
 The optional shelf uses Deno (MIT), ffprobe (FFmpeg license depends on build) and
 shasum (Perl distribution), installed separately and never bundled in the APK.
 Optional icon preview tooling requires Python and Pillow (HPND); it is not needed
-to build the Android app. The editable original icon is an included SVG.
+to build the Android app. The editable original icon is included as Android vector XML.

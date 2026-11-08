@@ -237,10 +237,13 @@ fun SettingsScreen(
                         "licenses/geist/OFL.txt",
                         "licenses/geist-pixel/OFL.txt",
                         "licenses/doto/OFL.txt",
+                        "licenses/roboto/Roboto-NOTICE.md",
+                        "licenses/roboto/Apache-2.0.txt",
                         "licenses/roboto/OFL-Roboto.txt",
                         "licenses/roboto/OFL-RobotoMono.txt",
                         "licenses/roboto/OFL-RobotoCondensed.txt",
                         "licenses/compact/NOTICE.md",
+                        "licenses/compact/NOTICE-CORRECTIONS.md",
                         "licenses/compact/OFL.txt",
                     )
                 notices =
