@@ -9,17 +9,17 @@ Reproductor Android offline con importación local, cola, capítulos, posiciones
 archivo y forma de onda en directo. Requiere Android10+, incluye UI inglesa y chino
 tradicional/simplificado con temas claro/oscuro/sistema, sin cuenta.
 
-## Importar y descargar
+## Importar e instalar
 
-Use el selector Android: guarda copias en almacenamiento privado. Los archivos locales existentes
-funcionan offline; los codecs dependen del dispositivo. No incluye colección privada ni portadas
-ajenas. La estantería LAN opcional transmite o copia sus archivos desde un ordenador.
+El selector Android importa copias a almacenamiento privado; la reproducción local funciona sin
+conexión. Los códecs dependen del dispositivo; no incluye medios ni portadas de terceros.
+La estantería LAN es opcional. Esta fuente es 0.9.2/code11; no se ha verificado un APK
+firmado público para esta versión. La compilación indicada abajo produce un APK sin firma. Las
+pruebas de [QUALITY.md](QUALITY.md) no sustituyen la validación en dispositivo. La
+[solicitud F-Droid](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310) seguía abierta
+el 2026-11-07; no se ha verificado su distribución actual.
 
-La publicación es [v0.9.1](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1), APK
-firmado, SHA256SUMS y huella pública de certificado. Autorice la instalación desde navegador/gestor
-cuando corresponda y verifique con [RELEASE.md](RELEASE.md). El candidato actual0.9.2/code11 es
-inédito y sin firma: sus comprobaciones no son aceptación física o de publicación. F-Droid constaba
-pendiente en0.9.1; su disponibilidad actual no se ha comprobado aquí.
+La [versión 0.9.1 firmada](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1) sigue disponible; consulte [RELEASE.md](RELEASE.md) para verificarla.
 
 ## Construir
 
@@ -28,14 +28,14 @@ Instale JDK17 libre, Android SDK37 y build tools36.0.0; configure ANDROID_HOME.
 dependencias de Google Maven/Maven Central. No necesita cuenta, ajustes personales, clave de firma o
 medios privados.
 
-Los APK GitHub usan la clave release retenida. La propuesta F-Droid de reconstruir con la misma
+Una futura publicación firmada requiere verificar la clave. La propuesta F-Droid de reconstruir con la misma
 firma exige aceptación y comprobación reproducible aparte. `./gradlew :app:assembleDebug` añade
 .catalog. ID público: io.github.codingezio.resonance, distinto del desarrollo privado. No importa
 automáticamente datos privados de otra App.
 
 ## Estantería LAN opcional
 
-Instale Deno, ffprobe y shasum. Copie server/config.example.json a <private-data>/config.json y
+Instale Deno 2.7 o posterior, ffprobe y shasum. Shelf bloquea el perfil para evitar uso simultáneo; conserve la clave existente durante la recuperación. Copie server/config.example.json a <private-data>/config.json y
 elija raíces absolutas de biblioteca. Arranque `deno task serve`, abra localhost:12345 en el
 servidor y empareje Android con su información de conexión. Por defecto no sirve archivos y no
 arranca solo. Sólo expone raíces seleccionadas; HTTP no está cifrado, por lo que debe usar una LAN
@@ -44,6 +44,8 @@ de confianza. La importación local y reproducción offline Android no necesitan
 server/config.json contiene defaults; RESONANCE_CONFIG elige overlay y RESONANCE_BIND/RESONANCE_PORT
 prevalecen para dirección/puerto. El estado vive en el directorio privado seleccionado; manténgalo
 privado y respáldelo aparte. La App Mac privada y su biblioteca quedan fuera del código público.
+
+Cada biblioteca puede indicar `"role": "singles"`, `"collections"` o `"legacy"`. Los archivos singles permanecen en la lista principal incluso en subcarpetas; collections y legacy muestran las subcarpetas como listas. Los archivos de la raíz permanecen en la lista principal. Las listas legacy siguen el ajuste Legacy existente. Los roles omitidos y los datos antiguos permanecen sin clasificar en la lista principal; el nombre de la carpeta no determina el rol. Edite la configuración privada, reinicie el estante y actualice la biblioteca Android. No se migran ni sobrescriben ajustes ni archivos existentes.
 
 ## Perfil privado de datos
 

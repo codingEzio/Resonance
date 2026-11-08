@@ -1,26 +1,19 @@
+import { pathToFileURL } from "node:url";
 import { parseRange, privateHost, type SourceRecord } from "./core.ts";
 import { loadShelfConfig, projectFile } from "./config.ts";
-import { pathToFileURL } from "node:url";
 import { ShelfCatalog } from "./catalog.ts";
 import { FileCatalogStore } from "./catalog-store.ts";
 import { discoverMedia, inspectMedia } from "./media-source.ts";
+import { loadOrCreateKey, lockProfile, requireLockSupport } from "./profile.ts";
 
+requireLockSupport();
 const config = await loadShelfConfig();
 const port = config.port;
 const stateDirectory = pathToFileURL(config.stateDirectory + "/");
 await Deno.mkdir(stateDirectory, { recursive: true, mode: 0o700 });
-const secretPath = new URL("access-key", stateDirectory);
-let secret: string;
-try {
-  secret = (await Deno.readTextFile(secretPath)).trim();
-} catch (error) {
-  if (!(error instanceof Deno.errors.NotFound)) throw error;
-  secret = Array.from(
-    crypto.getRandomValues(new Uint8Array(24)),
-    (b) => b.toString(16).padStart(2, "0"),
-  ).join("");
-  await Deno.writeTextFile(secretPath, secret, { mode: 0o600 });
-}
+// Keep the open lock alive for the lifetime of the server process.
+const profileLock = await lockProfile(stateDirectory);
+const secret = await loadOrCreateKey(stateDirectory);
 const lanAddresses = Deno.networkInterfaces().filter((n) =>
   n.family === "IPv4" && privateHost(n.address) && !n.address.startsWith("127.") &&
   !n.address.startsWith("169.254.")
@@ -281,6 +274,8 @@ void (async () => {
 })();
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   Deno.addSignalListener(signal, () => {
+    // Retain the file until all pending work ends and the process exits.
+    void profileLock;
     watcher?.close();
     clearTimeout(refresh);
     void server.shutdown();

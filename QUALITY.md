@@ -1,9 +1,17 @@
 # Quality checks and limits
 
+## Current source candidate — 2026-11-07
+
+The 183-file source selection excludes unused private-themed artwork. Explicit
+shelf source roles leave old or unknown memberships unclassified. Seven isolated
+Deno shelf tests passed. The portable Android source produced an unsigned APK
+and passed 21 JVM tests in an isolated build; it has not been installed or
+tested on a device. The October results below apply to their original inputs.
+
 ## Shelf data ownership and documentation checks — 2026-10-26
 
 The local Android 0.9.2/code11 candidate remains unpublished and unsigned.
-Its reviewed source selection now contains 195 files. The six product README
+That reviewed source selection contained 195 files. The six product README
 files cover English, Simplified and Traditional Chinese, Japanese, Korean and
 Spanish. Android source, Gradle inputs and bundled Android assets are unchanged
 from the checked October 21 source. The unsigned APK and 19 JVM fixture results
@@ -53,9 +61,11 @@ not acceptance evidence for this candidate. No signing, publication or F-Droid
 reproducibility check was performed for 0.9.2. The build used an exported source
 tree without Git metadata; it does not reproduce the earlier signed release.
 
-## Historical published release evidence
+## Historical release evidence
 
-The following records describe the 0.9.1 submission at the time recorded; its current external review status was not rechecked for this local preparation. They are not acceptance evidence for the unpublished 0.9.2 candidate.
+The 0.9.1 release is in the public GitHub repository. Its F-Droid merge request
+was still open on 2026-11-07; actual F-Droid availability was not verified.
+These records are not acceptance evidence for the 0.9.2 candidate.
 
 Source reviewed: v0.9.1, commit `9a3db36192c3b0862d8ab782db4f7386ff384f13`.
 F-Droid submission: <https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310>.

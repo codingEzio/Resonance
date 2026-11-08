@@ -1,4 +1,4 @@
-import { catalogMemberships, type SourceRecord, uniqueCatalog } from "./core.ts";
+import { catalogMemberships, libraryPrefix, type SourceRecord, uniqueCatalog } from "./core.ts";
 
 export type CatalogLocation = { path: string; group: string };
 export type CatalogStatus = {
@@ -29,7 +29,7 @@ export class ShelfCatalog {
   text = "{}";
 
   constructor(
-    private readonly libraries: { name: string; path: string }[],
+    private readonly libraries: { name: string; path: string; role?: string }[],
     private readonly maxFiles: number,
     private readonly source: CatalogSource,
     private readonly store: CatalogStore,
@@ -50,7 +50,7 @@ export class ShelfCatalog {
     const records = this.records.filter((record) =>
       this.libraries.some((library) =>
         library.name === record.group &&
-        record.path.startsWith(library.path.replace(/\/$/, "") + "/")
+        record.path.startsWith(libraryPrefix(library.path))
       )
     );
     this.byId = new Map(uniqueCatalog(records).map((record) => [record.id, record]));

@@ -81,3 +81,61 @@ Deno.test("folder membership survives hash dedup without exposing absolute paths
     { group: "Media", folder: "" },
   ]);
 });
+
+Deno.test("roles follow configured roots on restored and duplicate memberships", async () => {
+  const { catalogMemberships } = await import("./core.ts");
+  const records = [
+    { id: "same", path: "/fixture/a/Legacy/one", group: "Unspecified" },
+    { id: "same", path: "/fixture/b/Album/one", group: "Sets" },
+    { id: "same", path: "/fixture/c/Old/one", group: "Archive" },
+  ] as SourceRecord[];
+  equal(
+    catalogMemberships(records, [
+      { name: "Unspecified", path: "/fixture/a" },
+      { name: "Sets", path: "/fixture/b", role: "collections" },
+      { name: "Archive", path: "/fixture/c", role: "legacy" },
+    ]).get("same"),
+    [
+      { group: "Unspecified", folder: "Legacy" },
+      { group: "Sets", folder: "Album", role: "collections" },
+      { group: "Archive", folder: "Old", role: "legacy" },
+    ],
+  );
+});
+
+Deno.test("root and slash-named libraries retain distinct memberships through catalog restore", async () => {
+  const { ShelfCatalog } = await import("./catalog.ts");
+  const records = [
+    { id: "a", path: "/fixture/A/B/one.mp3", group: "Root" },
+    { id: "b", path: "/fixture/one/C/one.mp3", group: "A/B" },
+    { id: "c", path: "/fixture/two/B/C/two.mp3", group: "A" },
+  ].map((record) => ({
+    filename: "fixture.mp3",
+    bytes: 1,
+    modified: 1,
+    title: "Fixture",
+    creator: "",
+    durationMs: 1,
+    chapters: [],
+    ...record,
+  })) as SourceRecord[];
+  const libraries = [
+    { name: "Root", path: "/", role: "collections" },
+    { name: "A/B", path: "/fixture/one", role: "collections" },
+    { name: "A", path: "/fixture/two", role: "collections" },
+  ];
+  const source = {
+    discover: () => Promise.resolve([]),
+    info: () => Promise.resolve({ size: 1, modified: 1 }),
+    inspect: () => Promise.resolve(records[0]),
+  };
+  const store = { load: () => Promise.resolve(records), save: () => Promise.resolve() };
+  const catalog = new ShelfCatalog(libraries, 10, source, store);
+  await catalog.restore();
+  const items = JSON.parse(catalog.text).items;
+  equal(items.map((item: { memberships: unknown }) => item.memberships), [
+    [{ group: "Root", folder: "fixture/A/B", role: "collections" }],
+    [{ group: "A/B", folder: "C", role: "collections" }],
+    [{ group: "A", folder: "B/C", role: "collections" }],
+  ]);
+});

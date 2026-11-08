@@ -14,21 +14,15 @@ Import files through Android's file picker. Resonance keeps imported copies in i
 User-selected LAN connections are optional; existing local files can play offline. Codec support
 depends on the device.
 
-## Candidate and published release
+## Source and installation
 
-This source candidate is 0.9.2 (version code 11), unpublished and unsigned. The 0.9.1 download and
-its verification below remain historical release references. Current candidate checks are recorded
-in QUALITY.md; they do not establish device or release acceptance.
+This source is 0.9.2 (version code 11). No public signed APK has been verified
+for this version; the build below produces an unsigned APK. Candidate checks in
+[QUALITY.md](QUALITY.md) do not establish device or release acceptance. The
+[F-Droid submission](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)
+was still open on 2026-11-07; current distribution availability was not verified.
 
-## Install
-
-Download the signed `Resonance-v0.9.1.apk` from
-[GitHub Releases](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1). Allow installation
-from your browser or file manager when Android asks. The release includes SHA-256 checksums and its
-public signing certificate fingerprint. See [RELEASE.md](RELEASE.md) for verification and the
-release procedure. The 0.9.1 release record listed the
-[F-Droid submission](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310) as pending.
-Current F-Droid availability was not checked for this candidate.
+The signed [0.9.1 release](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1) remains available with checksums and signing information; see [RELEASE.md](RELEASE.md).
 
 ## Build
 
@@ -39,7 +33,7 @@ to the SDK directory, then run:
 ./gradlew -Presonance.profile=portable :app:assembleRelease
 ```
 
-This command produces an unsigned APK. Published GitHub APKs use the retained developer release key.
+This command produces an unsigned APK. A future signed release requires a verified developer key.
 F-Droid is requested to verify a reproducible rebuild and use the same signature; this requires its
 acceptance and publication checks. For local development, use `./gradlew :app:assembleDebug`; its
 application ID has `.catalog` appended. Public release ID: `io.github.codingezio.resonance`. The
@@ -51,12 +45,14 @@ key, personal configuration or private asset is required.
 
 ## Optional LAN shelf
 
-Install Deno, ffprobe and shasum. Copy `server/config.example.json` to `<private-data>/config.json`
+Install Deno 2.7 or newer, ffprobe and shasum. The shelf locks its private profile to prevent simultaneous owners; preserve the existing access key if recovery is needed. Copy `server/config.example.json` to `<private-data>/config.json`
 and add explicitly selected absolute library paths:
 
 ```json
 { "libraries": [{ "name": "Music", "path": "/path/to/music" }], "bind": "0.0.0.0" }
 ```
+
+Each library can optionally set `"role": "singles"`, `"collections"`, or `"legacy"`. Singles stay in the main list even in subfolders; collection and legacy roots group non-root folders as playlists. A root file stays in the main list. Legacy playlists follow the existing Legacy setting. Omitted roles and older shelf memberships remain unclassified in the main list; folder names never assign a role. Edit your private config and restart the shelf, then refresh the Android library. Existing settings and files are not migrated or overwritten.
 
 Run `deno task serve`, open `http://localhost:12345` on the server, and use the shown LAN connection
 details to pair the Android app. Only selected roots are served. Keep the shelf on a trusted local

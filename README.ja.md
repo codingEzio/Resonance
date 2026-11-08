@@ -9,17 +9,16 @@
 メディアプレーヤーです。Android10+、英語・繁体・簡体 UI と明暗／system
 に対応し、アカウントは不要です。
 
-## 取り込みとリリース
+## 取り込みとインストール
 
-Android ファイル選択で取り込み、App
-私有ストレージへコピーします。既存ローカルファイルはオフライン再生でき、codec
-対応は端末次第です。私有メディア集や第三者カバーは同梱しません。任意の LAN shelf
-だけが自分のコンピューターから stream／copy を行います。
+Android のファイル選択でアプリの私有領域にコピーし、ローカルファイルをオフライン再生できます。
+対応 codec は端末により異なり、個人メディアや第三者のカバーは含みません。
+LAN shelf は任意です。このソースは 0.9.2／code11 で、公開署名済み APK は未確認です。
+以下のビルドは未署名 APK を生成します。[QUALITY.md](QUALITY.md) の検証は実機受入ではありません。
+[F-Droid 申請](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)は
+2026-11-07 時点で受付中で、配布状況は未確認です。
 
-公開済みは [v0.9.1](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1) の署名
-APK、SHA256SUMS、公開署名指紋です。ブラウザー／file manager
-からのインストールを必要時だけ許可します。[RELEASE.md](RELEASE.md)で照合してください。現在のソース候補0.9.2／code11は未公開・未署名で、候補検証は実機やリリースの受入ではありません。F-Droid
-は0.9.1記録で申請中、今回の現在提供状況は未確認です。
+署名済みの [0.9.1 リリース](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1)は引き続き利用できます。検証方法は [RELEASE.md](RELEASE.md) を参照してください。
 
 ## ビルド
 
@@ -28,14 +27,16 @@ APK、SHA256SUMS、公開署名指紋です。ブラウザー／file manager
 を作ります。Gradle は Google Maven／Maven Central
 から依存を取得し、アカウント・私有設定・署名鍵・メディアは不要です。
 
-GitHub リリースは保持した開発者 release key、F-Droid
+将来の署名リリースには開発者鍵の確認が必要です。F-Droid
 の同一署名による再ビルド案は審査・再現性確認が別です。`./gradlew :app:assembleDebug` は .catalog
 を追加します。公開 ID は io.github.codingezio.resonance で、私有開発アプリと別です。他 App
 の私有データを自動取り込みしません。
 
 ## 任意の LAN shelf
 
-Deno、ffprobe、shasum を別途導入し、server/config.example.json を <private-data>/config.json
+Deno 2.7 以降、ffprobe、shasum を別途導入します。Shelf は複数プロセスの同時使用を防ぐためプロファイルをロックします。復旧時は既存のアクセスキーを保持してください。
+
+server/config.example.json を <private-data>/config.json
 へコピーして明示的に選ぶライブラリ絶対パスを設定します。`deno task serve` で起動し、server の
 localhost:12345 に表示した接続情報で Android
 とペアリングします。既定ではソースが空で、自動起動しません。選択した root だけを提供し、HTTP
@@ -45,6 +46,8 @@ shelf は不要です。
 server/config.json が既定、RESONANCE_CONFIG が overlay、RESONANCE_BIND／RESONANCE_PORT が bind／port
 を上書きし、state は選択した私有データディレクトリに保存します。私有 Mac
 版とそのライブラリは公開ソース範囲外です。
+
+各ライブラリには `"role": "singles"`、`"collections"`、`"legacy"` を任意で指定できます。singles はサブフォルダー内でもメイン一覧に表示され、collections と legacy はサブフォルダーをプレイリストとして表示します。ルート直下のファイルはメイン一覧に残ります。legacy は既存の Legacy 設定に従います。未指定の役割や旧データは未分類のままメイン一覧に表示され、フォルダー名から役割を推測しません。プライベート設定を編集してシェルフを再起動し、Android で更新してください。既存の設定やファイルは移動・上書きされません。
 
 ## 私有データプロファイル
 

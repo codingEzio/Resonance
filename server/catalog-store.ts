@@ -1,5 +1,6 @@
 import type { CatalogStore } from "./catalog.ts";
 import type { SourceRecord } from "./core.ts";
+import { fileURLToPath } from "node:url";
 
 /** Same atomic rename and private cache format as the existing shelf. */
 export class FileCatalogStore implements CatalogStore {
@@ -17,8 +18,17 @@ export class FileCatalogStore implements CatalogStore {
   }
 
   async save(records: SourceRecord[]): Promise<void> {
-    const temporary = new URL("catalog.next.json", this.directory);
-    await Deno.writeTextFile(temporary, JSON.stringify(records));
-    await Deno.rename(temporary, new URL("catalog.json", this.directory));
+    const temporary = await Deno.makeTempFile({
+      dir: fileURLToPath(this.directory),
+      prefix: ".catalog-",
+    });
+    try {
+      await Deno.writeTextFile(temporary, JSON.stringify(records));
+      await Deno.rename(temporary, new URL("catalog.json", this.directory));
+    } finally {
+      await Deno.remove(temporary).catch((error) => {
+        if (!(error instanceof Deno.errors.NotFound)) throw error;
+      });
+    }
   }
 }

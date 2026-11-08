@@ -45,23 +45,30 @@ export function privateHost(host: string): boolean {
   return /^[a-f0-9:]+$/i.test(host) && /^(fc|fd|fe80:)/i.test(host) && host.includes(":");
 }
 
+export function libraryPrefix(root: string): string {
+  return root === "/" ? "/" : root.replace(/\/$/, "") + "/";
+}
+
 /** Add all source memberships before collapsing identical content; publish relative folders only. */
 export function catalogMemberships(
   records: SourceRecord[],
-  libraries: { name: string; path: string }[],
-): Map<string, { group: string; folder: string }[]> {
-  const result = new Map<string, { group: string; folder: string }[]>();
+  libraries: { name: string; path: string; role?: string }[],
+): Map<string, { group: string; folder: string; role?: string }[]> {
+  const result = new Map<string, { group: string; folder: string; role?: string }[]>();
   const seen = new Map<string, Set<string>>();
   for (const record of records) {
-    const root = libraries.find((library) => library.name === record.group)?.path.replace(
-      /\/$/,
-      "",
-    );
-    if (!root || !record.path.startsWith(root + "/")) continue;
-    const relative = record.path.slice(root.length + 1);
+    const library = libraries.find((library) => library.name === record.group);
+    if (!library) continue;
+    const prefix = libraryPrefix(library.path);
+    if (!record.path.startsWith(prefix)) continue;
+    const relative = record.path.slice(prefix.length);
     if (relative.split("/").some((part) => part === ".." || part === ".")) continue;
     const folder = relative.includes("/") ? relative.slice(0, relative.lastIndexOf("/")) : "";
-    const membership = { group: record.group, folder };
+    const membership = {
+      group: record.group,
+      folder,
+      ...(library?.role ? { role: library.role } : {}),
+    };
     const key = JSON.stringify(membership);
     const keys = seen.get(record.id) ?? new Set<string>();
     if (keys.has(key)) continue;

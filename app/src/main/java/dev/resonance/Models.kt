@@ -7,10 +7,36 @@ data class Cue(
     val origin: String = "embedded",
 )
 
-data class LibraryLocation(val group: String, val folder: String) {
+data class LibraryLocation(val group: String, val folder: String, val role: String = "") {
     val key: String
         get() = "$group/$folder"
+    val navigationKey: String
+        get() = portableNavigationKey(this)
 }
+
+fun portableNavigationKey(location: LibraryLocation): String =
+    "source-v2:" + location.group.map { it.code.toString(16).padStart(4, '0') }.joinToString("") +
+        ":" + location.folder.map { it.code.toString(16).padStart(4, '0') }.joinToString("")
+
+/** Resolve saved old routes only when they identify exactly one current location. */
+fun resolvePortablePlaylistKey(requested: String?, locations: List<LibraryLocation>): String? {
+    if (requested == null) return null
+    val matches = locations.distinctBy { it.group to it.folder }.filter {
+        it.key == requested || portableNavigationKey(it) == requested
+    }
+    return when (matches.size) {
+        0 -> requested
+        1 -> portableNavigationKey(matches.single())
+        else -> requested
+    }
+}
+
+// Portable shelf memberships without an explicit role remain unclassified.
+fun LibraryLocation.isPortableCollection(): Boolean =
+    folder.isNotBlank() && (role == "collections" || role == "legacy")
+
+fun LibraryLocation.isPortableMainItem(): Boolean =
+    folder.isBlank() || (role != "collections" && role != "legacy")
 
 data class MediaEntry(
     val id: Long,

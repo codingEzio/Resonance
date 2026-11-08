@@ -8,17 +8,16 @@
 로컬 파일 가져오기、재생 대기열、챕터、파일별 재개 위치、실시간 파형을 가진 오프라인 Android 미디어
 플레이어입니다. Android10+、영어／번체／간체 UI와 명암／system을 지원하며 계정이 필요하지 않습니다.
 
-## 가져오기와 배포
+## 가져오기와 설치
 
-Android 파일 선택기로 가져와 App 비공개 저장소에 복사합니다. 기존 로컬 파일은 오프라인 재생하며
-codec 지원은 장치에 달렸습니다. 개인 미디어 모음이나 타사 표지를 포함하지 않습니다. 선택적인 LAN
-shelf만 자신의 컴퓨터에서 stream／copy합니다.
+Android 파일 선택기로 앱 비공개 저장소에 복사하며, 로컬 파일은 오프라인으로 재생합니다.
+코덱 지원은 기기에 따라 다르며 개인 미디어나 타사 표지는 포함하지 않습니다.
+LAN shelf는 선택 사항입니다. 이 소스는 0.9.2/code11이며 공개 서명 APK는 확인되지 않았습니다.
+아래 빌드는 미서명 APK를 만듭니다. [QUALITY.md](QUALITY.md) 검사는 실기 검수가 아닙니다.
+[F-Droid 신청](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)은
+2026-11-07 기준 열려 있으며 실제 배포 여부는 확인하지 않았습니다.
 
-공개 배포는 [v0.9.1](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1)의 서명
-APK、SHA256SUMS、공개 인증서 지문입니다. 필요할 때 브라우저／file manager 설치를 허용하고
-[RELEASE.md](RELEASE.md)로 검증합니다. 현재 소스 후보0.9.2／code11은 미공개、미서명이며 후보 검사는
-실기／배포 검수가 아닙니다. F-Droid는0.9.1기록에서 신청 중이고 현재 제공 여부는 이번에 확인하지
-않았습니다.
+서명된 [0.9.1 릴리스](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1)는 계속 제공됩니다. 검증 방법은 [RELEASE.md](RELEASE.md)를 참조하세요.
 
 ## 빌드
 
@@ -26,14 +25,16 @@ APK、SHA256SUMS、공개 인증서 지문입니다. 필요할 때 브라우저�
 `./gradlew -Presonance.profile=portable :app:assembleRelease`는 미서명 APK를 만듭니다. Gradle은
 Google Maven／Maven Central에서 의존을 받으며 계정、개인 설정、서명 키、미디어는 필요하지 않습니다.
 
-GitHub 배포는 보존된 개발자 release key를 사용합니다. 같은 서명을 쓰는 F-Droid 재빌드 제안은 별도
+향후 서명 배포에는 개발자 키 확인이 필요합니다. 같은 서명을 쓰는 F-Droid 재빌드 제안은 별도
 승인／재현성 검증 대상입니다. `./gradlew :app:assembleDebug`는 .catalog를 붙입니다. 공개 ID는
 io.github.codingezio.resonance로 개인 개발 App과 다르며 다른 App의 비공개 데이터를 자동 가져오지
 않습니다.
 
 ## 선택적인 LAN shelf
 
-Deno、ffprobe、shasum을 설치하고 server/config.example.json을 <private-data>/config.json에 복사한 뒤
+Deno 2.7 이상, ffprobe, shasum을 설치합니다. Shelf는 동시 사용을 막기 위해 프로필을 잠급니다. 복구할 때 기존 접근 키를 보존하세요.
+
+ server/config.example.json을 <private-data>/config.json에 복사한 뒤
 명시한 라이브러리 절대 경로를 설정합니다. `deno task serve`를 시작하고 서버 localhost:12345의 연결
 정보로 Android를 페어링합니다. 기본 소스는 비어 있고 자동 시작하지 않습니다. 선택한 root만 제공하며
 HTTP는 암호화하지 않으므로 신뢰할 LAN에 한정합니다. Android 단독 가져오기／오프라인 재생은 shelf
@@ -42,6 +43,8 @@ HTTP는 암호화하지 않으므로 신뢰할 LAN에 한정합니다. Android �
 server/config.json은 기본값、RESONANCE_CONFIG는 overlay、RESONANCE_BIND／RESONANCE_PORT는
 bind／port를 덮어쓰고 state는 선택한 비공개 디렉터리에 둡니다. 개인 Mac 버전과 라이브러리는 공개
 소스 범위 밖입니다.
+
+각 라이브러리에 `"role": "singles"`, `"collections"`, `"legacy"`를 선택적으로 지정할 수 있습니다. singles는 하위 폴더에서도 기본 목록에 남고, collections와 legacy는 하위 폴더를 재생목록으로 표시합니다. 루트 파일은 기본 목록에 남습니다. legacy는 기존 Legacy 설정을 따릅니다. 역할이 없거나 이전 데이터는 미분류로 기본 목록에 표시하며 폴더 이름으로 역할을 추측하지 않습니다. 개인 설정을 수정하고 셸프를 재시작한 다음 Android에서 새로고침하세요. 기존 설정과 파일은 이동하거나 덮어쓰지 않습니다.
 
 ## 비공개 데이터 프로필
 

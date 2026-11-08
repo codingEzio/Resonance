@@ -31,12 +31,23 @@ Deno.test("shelf profile keeps settings, key and reopened catalog outside source
       pathToFileURL(join(checkout, "server/config.ts")).href
     );
     Deno.env.set("RESONANCE_DATA", profile);
-    const settings = { libraries: [], maxFiles: 27, stateDirectory: "." };
+    const settings = {
+      libraries: [
+        { name: "Old", path: "/fixture/old" },
+        { name: "Sets", path: "/fixture/sets", role: "collections" },
+      ],
+      maxFiles: 27,
+      stateDirectory: ".",
+    };
     const settingsPath = join(profile, "config.json");
     await Deno.writeTextFile(settingsPath, JSON.stringify(settings));
     await Deno.writeTextFile(join(profile, "access-key"), "synthetic-key-only", { mode: 0o600 });
     const config = await loadShelfConfig();
-    equal([config.stateDirectory, config.maxFiles, config.libraries], [profile, 27, []]);
+    equal([config.stateDirectory, config.maxFiles, config.libraries], [
+      profile,
+      27,
+      settings.libraries,
+    ]);
     const record = {
       id: "a".repeat(64),
       path: "/fixture/one",
@@ -67,6 +78,17 @@ Deno.test("shelf profile keeps settings, key and reopened catalog outside source
       }
       if (!failed) throw new Error("Unsafe fixture profile was accepted");
     };
+    await Deno.writeTextFile(
+      settingsPath,
+      JSON.stringify({
+        ...settings,
+        libraries: [
+          { name: "Invalid", path: "/fixture", role: "typo" },
+        ],
+      }),
+    );
+    await rejects("Invalid library role");
+    await Deno.writeTextFile(settingsPath, JSON.stringify(settings));
     Deno.env.set("RESONANCE_DATA", join(checkout, "Local"));
     await rejects("outside the source checkout");
     Deno.env.set("RESONANCE_DATA", "relative-data");

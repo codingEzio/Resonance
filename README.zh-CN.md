@@ -12,18 +12,14 @@
 通过 Android 文件选择器导入媒体，副本保存在 App 私有存储中；已有本地文件可离线播放。
 解码格式取决于设备。不附带媒体收藏或第三方封面。
 
-## 候选与已发布版本
+## 源码与安装
 
-此源码候选为 0.9.2（版本码 11），尚未发布或签名。下方 0.9.1
-下载与验证仍是既有发布版本的参考；本次候选检查见 QUALITY.md，不代表真机或发布验收。
+此源码为 0.9.2（版本码 11）。尚未核实此版本有公开的已签名 APK；下方构建生成未签名 APK。
+[QUALITY.md](QUALITY.md) 中的候选检查不代表真机或发布验收。
+[F-Droid 申请](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)截至
+2026-11-07 仍开放，实际分发情况尚未核实。
 
-## 安装
-
-从 [GitHub Releases](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1) 下载正式签名的
-`Resonance-v0.9.1.apk`；Android 询问时，允许浏览器或文件管理器安装。 发布页提供 SHA-256
-校验码与公开签名证书指纹，验证方式见 [RELEASE.md](RELEASE.md)。 0.9.1 发布记录将
-[F-Droid 申请](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)
-列为待审；本次候选未重新确认 F-Droid 的当前上架状态。
+已签名的 [0.9.1 版本](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1)仍可下载；校验与签名信息见 [RELEASE.md](RELEASE.md)。
 
 ## 构建
 
@@ -34,7 +30,7 @@
 ./gradlew -Presonance.profile=portable :app:assembleRelease
 ```
 
-这个命令生成未签名 APK。GitHub 正式 APK 使用保留的开发者发布密钥； F-Droid
+这个命令生成未签名 APK。未来签名发布需要核实开发者密钥；F-Droid
 已改为申请重新构建比对后沿用相同签名，仍需通过审核与发布验证。开发版使用
 `./gradlew :app:assembleDebug`，ID 会加上 `.catalog`。 公开版 ID 为
 `io.github.codingezio.resonance`，与私有开发版本分开， 不会自动读取另一个 App 的私有数据。构建需下载
@@ -42,12 +38,14 @@ Google Maven／Maven Central 依赖。
 
 ## 可选的局域网媒体库
 
-另装 Deno、ffprobe、shasum。将 `server/config.example.json` 复制为
+另装 Deno 2.7 或更新版、ffprobe、shasum。Shelf 锁定私人配置目录以防多个进程同时使用；恢复时保留现有访问密钥。将 `server/config.example.json` 复制为
 `<private-data>/config.json`，指定要共享的绝对路径：
 
 ```json
 { "libraries": [{ "name": "Music", "path": "/path/to/music" }], "bind": "0.0.0.0" }
 ```
+
+每个来源可选填 `"role": "singles"`、`"collections"` 或 `"legacy"`。singles 即使位于子文件夹也保留在主列表；collections 和 legacy 将子文件夹显示为播放列表，根目录文件仍在主列表。legacy 播放列表遵循现有 Legacy 设置。未指定角色及旧媒体库数据保持未分类，显示在主列表；文件夹名称不会决定角色。编辑私人设置并重启媒体库，再在 Android 中刷新。现有设置和文件不会自动迁移或覆盖。
 
 运行 `deno task serve`，在服务器打开 `http://localhost:12345`，使用页面显示的
 局域网连接信息配对手机。只共享已配置的目录。HTTP 传输未加密，请限可信任的局域网。

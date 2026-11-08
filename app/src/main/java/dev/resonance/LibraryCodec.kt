@@ -38,7 +38,7 @@ fun encodeLocations(locations: List<LibraryLocation>): String =
     JSONArray()
         .apply {
             locations.distinct().forEach { location ->
-                put(JSONObject().put("group", location.group).put("folder", location.folder))
+                put(JSONObject().put("group", location.group).put("folder", location.folder).put("role", location.role))
             }
         }
         .toString()
@@ -48,7 +48,7 @@ fun decodeLocations(json: String): List<LibraryLocation> =
         (0 until array.length())
             .map { i ->
                 array.getJSONObject(i).let {
-                    LibraryLocation(it.getString("group"), it.optString("folder"))
+                    LibraryLocation(it.getString("group"), it.optString("folder"), it.optString("role"))
                 }
             }
             .distinct()

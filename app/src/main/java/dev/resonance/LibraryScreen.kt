@@ -36,10 +36,10 @@ internal fun libraryText(copy: Copy, key: String): String {
 internal const val LegacyPlaylistKey = "virtual:legacy"
 
 internal fun LibraryLocation.isLegacyCollection(): Boolean =
-    folder.substringAfterLast('/').equals("Legacy", ignoreCase = true)
+    role == "legacy"
 
 /** A collection is a source folder, independent of the URI used to play its files. */
-private fun MediaEntry.collectionLocations() = locations.filter { it.folder.isNotBlank() }
+private fun MediaEntry.collectionLocations() = locations.filter { it.isPortableCollection() }
 
 @Composable
 internal fun LibraryScreen(
@@ -95,11 +95,12 @@ internal fun LibraryScreen(
     val folders =
         remember(available) {
             available
-                .flatMap { entry -> entry.collectionLocations().map { it.key to it } }
+                .flatMap { entry -> entry.collectionLocations().map { it.navigationKey to it } }
                 .toMap()
                 .values
                 .sortedBy { it.folder.lowercase() }
         }
+    val playlist = resolvePortablePlaylistKey(playlist, folders)
     val legacyFolders = folders.filter { it.isLegacyCollection() }
     val displayedFolders =
         when (playlist) {
@@ -111,17 +112,17 @@ internal fun LibraryScreen(
                     else emptyList()
             else -> emptyList()
         }
-    val location = entries.flatMap { it.collectionLocations() }.find { it.key == playlist }
+    val location = entries.flatMap { it.collectionLocations() }.find { it.navigationKey == playlist }
     val scoped =
         remember(available, playlist) {
             available
                 .filter {
                     if (playlist == LegacyPlaylistKey) false
                     else if (playlist != null)
-                        it.collectionLocations().any { location -> location.key == playlist }
+                        it.collectionLocations().any { location -> location.navigationKey == playlist }
                     else
                         it.collectionLocations().isEmpty() ||
-                            it.locations.any { location -> location.folder.isBlank() }
+                            it.locations.any { location -> location.isPortableMainItem() }
                 }
                 .sortedWith(compareBy<MediaEntry> { it.filename.lowercase() }.thenBy { it.id })
         }
@@ -396,7 +397,7 @@ internal fun LibraryScreen(
                     available.any { entry ->
                         entry.collectionLocations().any {
                             if (folder.group == "virtual") it.isLegacyCollection()
-                            else it.key == folder.key
+                            else it.navigationKey == folder.navigationKey
                         } && matches(entry)
                     }
             }
@@ -408,11 +409,11 @@ internal fun LibraryScreen(
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
-            items(visibleFolders, key = { "folder:${it.key}" }) { folder ->
+            items(visibleFolders, key = { "folder:${it.navigationKey}" }) { folder ->
                 val members = available.filter { entry ->
                     entry.collectionLocations().any {
                         if (folder.group == "virtual") it.isLegacyCollection()
-                        else it.key == folder.key
+                        else it.navigationKey == folder.navigationKey
                     }
                 }
                 val label =
@@ -429,7 +430,7 @@ internal fun LibraryScreen(
                         .combinedClickable(
                             onClick = {
                                 openPlaylist(
-                                    if (folder.group == "virtual") LegacyPlaylistKey else folder.key
+                                    if (folder.group == "virtual") LegacyPlaylistKey else folder.navigationKey
                                 )
                             },
                             onLongClickLabel = libraryText(copy, "append"),

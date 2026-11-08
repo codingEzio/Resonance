@@ -2,7 +2,7 @@
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 export type ShelfConfig = {
-  libraries: { name: string; path: string }[];
+  libraries: { name: string; path: string; role?: "singles" | "collections" | "legacy" }[];
   maxFiles: number;
   maxStreams: number;
   bind: string;
@@ -94,17 +94,20 @@ export function parseConfig(value: unknown): ShelfConfig {
   };
   if (!Array.isArray(row.libraries)) throw new Error("Invalid setting: libraries");
   const names = new Set<string>();
-  const libraries = row.libraries.map((entry: unknown) => {
+  const libraries = row.libraries.map((entry: unknown): ShelfConfig["libraries"][number] => {
     if (!entry || typeof entry !== "object") throw new Error("Invalid library");
-    const { name, path } = entry as Record<string, unknown>;
+    const { name, path, role } = entry as Record<string, unknown>;
     if (
       typeof name !== "string" || !name.trim() || typeof path !== "string" || !path.startsWith("/")
     ) {
       throw new Error("Each library needs a unique name and an absolute path");
     }
     if (names.has(name)) throw new Error("Duplicate library name");
+    if (role !== undefined && role !== "singles" && role !== "collections" && role !== "legacy") {
+      throw new Error("Invalid library role");
+    }
     names.add(name);
-    return { name, path: path.replace(/\/$/, "") || "/" };
+    return { name, path: path.replace(/\/$/, "") || "/", ...(role ? { role } : {}) };
   });
   if (row.displayNames !== null && (typeof row.displayNames !== "string" || !row.displayNames)) {
     throw new Error("Invalid setting: displayNames");

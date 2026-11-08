@@ -1,4 +1,4 @@
-import type { SourceRecord } from "./core.ts";
+import { libraryPrefix, type SourceRecord } from "./core.ts";
 
 /** Read-only filesystem/tool adapter. The catalog owns scheduling and persistence. */
 export type ProbeTools = { ffprobe: string; shasum: string };
@@ -13,14 +13,14 @@ export async function discoverMedia(
   async function walk(path: string) {
     for await (const entry of Deno.readDir(path)) {
       if (entry.isSymlink || entry.name.startsWith(".")) continue;
-      const next = `${path}/${entry.name}`;
+      const next = `${libraryPrefix(path)}${entry.name}`;
       if (entry.isDirectory) await walk(next);
       else if (
         entry.isFile && /\.(mp4|m4a|mkv|webm|mp3|flac|ogg|opus|wav|aac)$/i.test(entry.name)
       ) {
         if (found.length >= limit) throw new Error(`Configured ${limit}-file limit reached`);
         const real = await Deno.realPath(next);
-        if (!real.startsWith(canonical + "/")) continue;
+        if (!real.startsWith(libraryPrefix(canonical))) continue;
         found.push({ path: real, group });
       }
     }
