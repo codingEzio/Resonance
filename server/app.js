@@ -148,6 +148,23 @@ function showError(error) {
   $("error").textContent = error.message;
   $("error").hidden = false;
 }
+function groupsFor(item) {
+  return [...new Set([item.group, ...(item.memberships ?? []).map((entry) => entry.group)])]
+    .filter((group) => typeof group === "string" && group.length > 0);
+}
+function updateFolders(scanning) {
+  const select = $("folder"), selected = select.value;
+  const groups = new Set(items.flatMap(groupsFor));
+  if (scanning && selected) groups.add(selected);
+  const options = [...groups].sort((a, b) => a.localeCompare(b)).map((group) => {
+    const option = document.createElement("option");
+    option.value = group;
+    option.textContent = group;
+    return option;
+  });
+  select.replaceChildren(select.options[0], ...options);
+  select.value = groups.has(selected) ? selected : "";
+}
 async function load() {
   try {
     const catalog = await request("/api/catalog");
@@ -155,6 +172,7 @@ async function load() {
     key = connection.key;
     remoteBase = connection.base;
     items = catalog.items;
+    updateFolders(catalog.status.active);
     $("pairing").hidden = true;
     $("library").hidden = false;
     $("error").hidden = true;
@@ -179,7 +197,7 @@ function duration(ms) {
 function render() {
   const q = $("search").value.trim().toLowerCase(), folder = $("folder").value;
   const visible = items.filter((item) =>
-    (!folder || item.group === folder) &&
+    (!folder || groupsFor(item).includes(folder)) &&
     (!q ||
       `${item.displayName?.title ?? ""} ${
         item.displayName?.subtitle ?? ""
