@@ -1,7 +1,45 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Explicitly selected local overrides are not part of the public build or source tree.
+val localBuild = providers.gradleProperty("resonance.localBuildConfig").orNull?.let { path ->
+    val configFile = rootProject.file(path).canonicalFile
+    val root = rootProject.projectDir.canonicalFile.toPath()
+    val local = rootProject.file("Local").canonicalFile.toPath()
+    require(!configFile.toPath().startsWith(root) || configFile.toPath().startsWith(local)) {
+        "Local build configuration must be outside the checkout or inside ignored Local/"
+    }
+    require(configFile.isFile) { "Selected local build configuration is missing" }
+    Properties().apply { configFile.inputStream().use { load(it) } }
+}
+val supportedLocalKeys = setOf("applicationId", "storeFile", "storePasswordEnv", "keyAlias", "keyPasswordEnv")
+require(localBuild == null || localBuild.stringPropertyNames().all { it in supportedLocalKeys }) {
+    "Unknown local build setting"
+}
+val localApplicationId = localBuild?.getProperty("applicationId")?.trim()?.also {
+    require(it.matches(Regex("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+"))) {
+        "Invalid local applicationId"
+    }
+}
+val signingKeys = listOf("storeFile", "storePasswordEnv", "keyAlias", "keyPasswordEnv")
+val signingValues = signingKeys.associateWith { localBuild?.getProperty(it)?.trim().orEmpty() }
+val localSigning = signingKeys.any { localBuild?.containsKey(it) == true }
+require(!localSigning || signingValues.values.all { it.isNotEmpty() }) {
+    "Local signing requires storeFile, storePasswordEnv, keyAlias and keyPasswordEnv"
+}
+val signingSecrets = if (localSigning) {
+    require(rootProject.file(signingValues.getValue("storeFile")).isFile) {
+        "Local signing keystore is missing"
+    }
+    listOf("storePasswordEnv", "keyPasswordEnv").associateWith { key ->
+        providers.environmentVariable(signingValues.getValue(key)).orNull?.takeIf { it.isNotEmpty() }
+            ?: error("Required signing password environment variable is missing: $key")
+    }
+} else emptyMap()
 
 val presentationProfile = providers.gradleProperty("resonance.profile")
     .orElse(providers.environmentVariable("RESONANCE_PROFILE"))
@@ -25,7 +63,7 @@ android {
     namespace = "dev.resonance"
     compileSdk = 37
     defaultConfig {
-        applicationId = "io.github.codingezio.resonance"
+        applicationId = localApplicationId ?: "io.github.codingezio.resonance"
         minSdk = 29
         targetSdk = 37
         versionCode = 11
@@ -35,9 +73,16 @@ android {
     }
     buildFeatures { compose = true; buildConfig = true }
     sourceSets.getByName("main").assets.setSrcDirs(listOf(packagedAssets))
+    val privateRelease = if (localSigning) signingConfigs.create("localRelease") {
+        storeFile = rootProject.file(signingValues.getValue("storeFile"))
+        storePassword = signingSecrets.getValue("storePasswordEnv")
+        keyAlias = signingValues.getValue("keyAlias")
+        keyPassword = signingSecrets.getValue("keyPasswordEnv")
+    } else null
     buildTypes {
         debug { applicationIdSuffix = ".catalog" }
         release {
+            if (privateRelease != null) signingConfig = privateRelease
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))

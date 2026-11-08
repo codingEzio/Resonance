@@ -8,3 +8,15 @@ local.properties
 .DS_Store
 .build/
 .swiftpm/
+
+# Optional local product extensions and private presentation inputs.
+/Mac
+/scripts/mac
+/scripts/mac-download-worker.ts
+/scripts/cache-spotify-art.ts
+/scripts/tool-config.ts
+/media-art
+/app/src/main/assets/display-names.json
+/app/src/main/assets/presentation-rules.json
+/app/src/main/assets/library-art.json
+/app/src/main/assets/library-art

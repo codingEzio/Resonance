@@ -43,6 +43,10 @@ automatically import another application's private data.
 Gradle downloads build dependencies from Google Maven and Maven Central. No account, local signing
 key, personal configuration or private asset is required.
 
+For a local build override, create an ignored `Local/android-build.properties` and select it with `-Presonance.localBuildConfig=Local/android-build.properties`. Set `applicationId` if needed. Optional signing requires all four properties: `storeFile`, `storePasswordEnv`, `keyAlias`, and `keyPasswordEnv`; the last two environment-name properties name variables containing the passwords. A selected missing file, incomplete signing, missing password or unknown property fails the build. Without an override, the public ID and unsigned release remain the defaults. Keep keys and this file private.
+
+Optional local extensions may be linked at `Mac/`, the ignored `scripts/mac*` and maintenance-script paths, and ignored presentation asset paths. They are not supplied by this checkout; confirm their own dependencies before use.
+
 ## Optional LAN shelf
 
 Install Deno 2.7 or newer, ffprobe and shasum. The shelf locks its private profile to prevent simultaneous owners; preserve the existing access key if recovery is needed. Copy `server/config.example.json` to `<private-data>/config.json`

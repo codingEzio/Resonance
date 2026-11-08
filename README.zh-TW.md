@@ -36,6 +36,10 @@
 `io.github.codingezio.resonance`，與私人開發版本分開， 不會自動讀取另一個 App 的私人資料。建置需下載
 Google Maven／Maven Central 依賴。
 
+本機建置可建立被忽略的 `Local/android-build.properties`，以 `-Presonance.localBuildConfig=Local/android-build.properties` 明確選取，並視需要設定 `applicationId`。選用簽章時須同時設定 `storeFile`、`storePasswordEnv`、`keyAlias`、`keyPasswordEnv`；兩個 Env 欄位是存放密碼的環境變數名稱。缺檔、不完整、缺密碼或未知欄位會失敗；未選取時使用公開 ID 與未簽章設定。金鑰及設定檔須保密。
+
+私人 Mac、維護腳本與展示素材可透過被忽略的本機連結提供；本儲存庫不附帶它們。使用前須確認其依賴。
+
 ## 可選的區域網路媒體架
 
 另裝 Deno 2.7 或更新版、ffprobe、shasum。Shelf 鎖定私人設定檔以防多個程序同時使用；復原時保留既有存取金鑰。將 `server/config.example.json` 複製為
