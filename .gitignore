@@ -11,6 +11,14 @@ local.properties
 
 # Optional local product extensions and private presentation inputs.
 /Mac
+/scripts/build
+/scripts/build-library-art.ts
+/scripts/build-official-art.ts
+/scripts/capture-catalog.ts
+/scripts/export-public.ts
+/scripts/install-service
+/scripts/serve
+/scripts/sync-media-metadata.ts
 /scripts/mac
 /scripts/mac-download-worker.ts
 /scripts/cache-spotify-art.ts
