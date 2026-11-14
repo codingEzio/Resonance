@@ -16,8 +16,8 @@
 
 此原始碼為 0.9.2（版本碼 11）。尚未確認此版本有公開的已簽章 APK；下方建置產生未簽章 APK。
 [QUALITY.md](QUALITY.md) 的候選檢查不代表實機或發布驗收。
-[F-Droid 申請](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)截至
-2026-11-07 仍開啟，實際發布情況尚未確認。
+[F-Droid 申請](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)於
+2026-11-11 關閉且未合併，近期暫停上架。後續按作者自己的需求開發，並透過 GitHub 發布。
 
 已簽章的 [0.9.1 版本](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1)仍可下載；校驗與簽章資訊見 [RELEASE.md](RELEASE.md)。
 
@@ -30,8 +30,8 @@
 ./gradlew -Presonance.profile=portable :app:assembleRelease
 ```
 
-這個命令產生未簽章 APK。未來簽章發布需要確認開發者金鑰；F-Droid
-已改為申請重新建置比對後沿用相同簽章，仍需通過審核與發布驗證。開發版使用
+這個命令產生未簽章 APK。未來簽章發布需要確認開發者金鑰；先前 F-Droid 的同簽章
+可重現建置申請目前已停止。開發版使用
 `./gradlew :app:assembleDebug`，ID 會加上 `.catalog`。 公開版 ID 為
 `io.github.codingezio.resonance`，與私人開發版本分開， 不會自動讀取另一個 App 的私人資料。建置需下載
 Google Maven／Maven Central 依賴。

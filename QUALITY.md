@@ -64,7 +64,8 @@ tree without Git metadata; it does not reproduce the earlier signed release.
 ## Historical release evidence
 
 The 0.9.1 release is in the public GitHub repository. Its F-Droid merge request
-was still open on 2026-11-07; actual F-Droid availability was not verified.
+closed without merging on 2026-11-11. F-Droid distribution is paused; future
+development follows the owner's needs and GitHub updates.
 These records are not acceptance evidence for the 0.9.2 candidate.
 
 Source reviewed: v0.9.1, commit `9a3db36192c3b0862d8ab782db4f7386ff384f13`.
@@ -107,8 +108,8 @@ network security audit. See [PRIVACY.md](PRIVACY.md).
   APK bytes; checksums and provenance permit independent checks.
 - The F-Droid recipe requests verification of the same signed APK, so accepted
   releases can retain the update identity across distribution channels.
-- Three-language installation instructions separate GitHub availability from
-  pending F-Droid inclusion.
+- Three-language installation instructions separated GitHub availability from
+  F-Droid inclusion, which was pending at the time.
 
 A future transport revision should provide encrypted pairing/media and pin
 validated connection addresses. These are product changes, not requirements

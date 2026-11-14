@@ -16,8 +16,8 @@ conexión. Los códecs dependen del dispositivo; no incluye medios ni portadas d
 La estantería LAN es opcional. Esta fuente es 0.9.2/code11; no se ha verificado un APK
 firmado público para esta versión. La compilación indicada abajo produce un APK sin firma. Las
 pruebas de [QUALITY.md](QUALITY.md) no sustituyen la validación en dispositivo. La
-[solicitud F-Droid](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310) seguía abierta
-el 2026-11-07; no se ha verificado su distribución actual.
+[solicitud F-Droid](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310) se cerró sin fusionarse
+el 2026-11-11 y la distribución en F-Droid queda en pausa. El desarrollo futuro responde a las necesidades del autor y se publica en GitHub.
 
 La [versión 0.9.1 firmada](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1) sigue disponible; consulte [RELEASE.md](RELEASE.md) para verificarla.
 
@@ -28,8 +28,8 @@ Instale JDK17 libre, Android SDK37 y build tools36.0.0; configure ANDROID_HOME.
 dependencias de Google Maven/Maven Central. No necesita cuenta, ajustes personales, clave de firma o
 medios privados.
 
-Una futura publicación firmada requiere verificar la clave. La propuesta F-Droid de reconstruir con la misma
-firma exige aceptación y comprobación reproducible aparte. `./gradlew :app:assembleDebug` añade
+Una futura publicación firmada requiere verificar la clave. La solicitud anterior de compilación reproducible
+con la misma firma para F-Droid ya no está activa. `./gradlew :app:assembleDebug` añade
 .catalog. ID público: io.github.codingezio.resonance, distinto del desarrollo privado. No importa
 automáticamente datos privados de otra App.
 

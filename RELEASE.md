@@ -54,7 +54,7 @@ not required on supported devices and its ZIP flags caused a signature-copy
 mismatch with the checked tooling. Existing 16 KiB ZIP alignment is preserved.
 
 Before upload, check the APK package ID/version, install and launch it on an
-isolated Android device/emulator, and compare against the F-Droid rebuild with
+isolated Android device/emulator, and compare against an independently rebuilt unsigned APK with
 `apksigcopier compare signed.apk --unsigned fdroid-unsigned.apk`. Publish the
 APK only when verification passes, along with `SHA256SUMS`, the public
 certificate fingerprint and source/build provenance. Never publish a CI test
@@ -62,9 +62,8 @@ signing key or use a CI test-signed APK as a permanent release.
 
 ## F-Droid distribution
 
-The inclusion recipe requests developer-signed reproducible distribution using
-`Binaries` and `AllowedAPKSigningKeys`. F-Droid must reproduce the APK and verify
-the expected key before publication. If it accepts this recipe and publishes,
-GitHub and F-Droid APKs can update one another without changing the signing key.
-This is requested, not an assertion that the app has already been accepted.
+The inclusion request closed without merging on 2026-11-11; F-Droid distribution
+is paused. The owner develops for personal needs and may publish updates on GitHub.
+The former recipe proposed developer-signed reproducible distribution using
+`Binaries` and `AllowedAPKSigningKeys`; it is historical, not an active request.
 See <https://f-droid.org/en/docs/Reproducible_Builds/>.

@@ -15,7 +15,7 @@ Android 파일 선택기로 앱 비공개 저장소에 복사하며, 로컬 파�
 LAN shelf는 선택 사항입니다. 이 소스는 0.9.2/code11이며 공개 서명 APK는 확인되지 않았습니다.
 아래 빌드는 미서명 APK를 만듭니다. [QUALITY.md](QUALITY.md) 검사는 실기 검수가 아닙니다.
 [F-Droid 신청](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)은
-2026-11-07 기준 열려 있으며 실제 배포 여부는 확인하지 않았습니다.
+2026-11-11에 병합 없이 종료되었으며 당분간 재신청하지 않습니다. 이후 개발은 작성자의 사용 필요에 맞추고 GitHub에 공개합니다.
 
 서명된 [0.9.1 릴리스](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1)는 계속 제공됩니다. 검증 방법은 [RELEASE.md](RELEASE.md)를 참조하세요.
 
@@ -25,8 +25,8 @@ LAN shelf는 선택 사항입니다. 이 소스는 0.9.2/code11이며 공개 서
 `./gradlew -Presonance.profile=portable :app:assembleRelease`는 미서명 APK를 만듭니다. Gradle은
 Google Maven／Maven Central에서 의존을 받으며 계정、개인 설정、서명 키、미디어는 필요하지 않습니다.
 
-향후 서명 배포에는 개발자 키 확인이 필요합니다. 같은 서명을 쓰는 F-Droid 재빌드 제안은 별도
-승인／재현성 검증 대상입니다. `./gradlew :app:assembleDebug`는 .catalog를 붙입니다. 공개 ID는
+향후 서명 배포에는 개발자 키 확인이 필요합니다. 이전 F-Droid 동일 서명 재현 빌드 신청은 중단된 상태입니다.
+`./gradlew :app:assembleDebug`는 .catalog를 붙입니다. 공개 ID는
 io.github.codingezio.resonance로 개인 개발 App과 다르며 다른 App의 비공개 데이터를 자동 가져오지
 않습니다.
 

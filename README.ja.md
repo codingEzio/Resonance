@@ -16,7 +16,7 @@ Android のファイル選択でアプリの私有領域にコピーし、ロー
 LAN shelf は任意です。このソースは 0.9.2／code11 で、公開署名済み APK は未確認です。
 以下のビルドは未署名 APK を生成します。[QUALITY.md](QUALITY.md) の検証は実機受入ではありません。
 [F-Droid 申請](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)は
-2026-11-07 時点で受付中で、配布状況は未確認です。
+2026-11-11 にマージされず終了し、当面は申請を休止します。今後は作者自身の用途に応じて開発し、GitHub で公開します。
 
 署名済みの [0.9.1 リリース](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1)は引き続き利用できます。検証方法は [RELEASE.md](RELEASE.md) を参照してください。
 
@@ -27,8 +27,8 @@ LAN shelf は任意です。このソースは 0.9.2／code11 で、公開署名
 を作ります。Gradle は Google Maven／Maven Central
 から依存を取得し、アカウント・私有設定・署名鍵・メディアは不要です。
 
-将来の署名リリースには開発者鍵の確認が必要です。F-Droid
-の同一署名による再ビルド案は審査・再現性確認が別です。`./gradlew :app:assembleDebug` は .catalog
+将来の署名リリースには開発者鍵の確認が必要です。以前の F-Droid 向け同一署名再ビルド申請は現在停止中です。
+`./gradlew :app:assembleDebug` は .catalog
 を追加します。公開 ID は io.github.codingezio.resonance で、私有開発アプリと別です。他 App
 の私有データを自動取り込みしません。
 

@@ -20,7 +20,8 @@ This source is 0.9.2 (version code 11). No public signed APK has been verified
 for this version; the build below produces an unsigned APK. Candidate checks in
 [QUALITY.md](QUALITY.md) do not establish device or release acceptance. The
 [F-Droid submission](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/51310)
-was still open on 2026-11-07; current distribution availability was not verified.
+closed without merging on 2026-11-11. F-Droid distribution is paused; future
+development is driven by the owner's needs and published through GitHub.
 
 The signed [0.9.1 release](https://github.com/codingEzio/Resonance/releases/tag/v0.9.1) remains available with checksums and signing information; see [RELEASE.md](RELEASE.md).
 
@@ -34,8 +35,8 @@ to the SDK directory, then run:
 ```
 
 This command produces an unsigned APK. A future signed release requires a verified developer key.
-F-Droid is requested to verify a reproducible rebuild and use the same signature; this requires its
-acceptance and publication checks. For local development, use `./gradlew :app:assembleDebug`; its
+The earlier F-Droid reproducible-build proposal is no longer active. For local development,
+use `./gradlew :app:assembleDebug`; its
 application ID has `.catalog` appended. Public release ID: `io.github.codingezio.resonance`. The
 public application is separate from any privately distributed development app. It does not
 automatically import another application's private data.
