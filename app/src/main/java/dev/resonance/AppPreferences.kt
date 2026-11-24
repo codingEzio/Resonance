@@ -45,6 +45,16 @@ internal class AppPreferences(private val storage: SharedPreferences) {
 
     /** Retain the existing v4 migration, which previously lived in the main Composable. */
     fun applyLegacyDefaults() {
+        if (!storage.getBoolean("resonance_defaults_20261124", false)) {
+            val edit = storage.edit().putBoolean("resonance_defaults_20261124", true)
+            if (
+                !storage.contains(AppSettings.Language.key) ||
+                    storage.getString(AppSettings.Language.key, "system") == "system"
+            )
+                edit.putString(AppSettings.Language.key, "zh-Hans")
+            edit.putBoolean(AppSettings.FullScreen.key, true)
+            edit.apply()
+        }
         if (!get(AppSettings.PixelDefaultApplied)) {
             storage
                 .edit()

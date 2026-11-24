@@ -25,7 +25,8 @@ internal object AppSettings {
             "pixel",
             listOf("pixel", "nothing", "compact", "doto", "roboto", "system"),
         )
-    val Language = ChoiceSetting("language", "system", listOf("system", "en", "zh-Hant", "zh-Hans"))
+    val Language =
+        ChoiceSetting("language", "zh-Hans", listOf("system", "en", "zh-Hant", "zh-Hans"))
     val MaterialYou = ToggleSetting("material_you", false)
     val Motion = ToggleSetting("motion", true)
     val RespectSystemMotion = ToggleSetting("respect_system_motion", true)
@@ -33,9 +34,9 @@ internal object AppSettings {
     val LibrarySearch = ToggleSetting("library_search", true)
     val LibraryDuration = ToggleSetting("library_duration", false)
     val LibraryLegacy = ToggleSetting("library_legacy", false)
-    val SystemVolumeGuard = ToggleSetting("system_volume_guard", false)
     val VolumeLimit =
         FloatSetting("volume_limit", VolumePolicy.DEFAULT_GAIN, 0f, VolumePolicy.MAX_GAIN)
+    val VolumeWarning = FloatSetting("volume_warning", VolumePolicy.DEFAULT_WARNING, .05f, 1f)
 
     // Existing one-time state stays under its original keys; these are not user choices.
     val PixelDefaultApplied = ToggleSetting("pixel_default_v4", false)
