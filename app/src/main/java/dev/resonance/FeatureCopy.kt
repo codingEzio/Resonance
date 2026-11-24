@@ -70,8 +70,8 @@ internal val featureStrings =
                 "播放使用前景媒體服務。若手機中止背景音訊，可在 Android 檢查此 App 的電池設定。",
                 "播放使用前台媒体服务。若手机中止后台音频，可在 Android 检查此 App 的电池设置。",
             ),
-        "volume" to listOf("Maximum volume", "最大音量", "最大音量"),
-        "output_limit" to listOf("Maximum app volume", "App 最大音量", "App 最大音量"),
+        "volume" to listOf("App volume", "應用程式音量", "应用音量"),
+        "output_limit" to listOf("App volume", "應用程式音量", "应用音量"),
         "volume_hint" to
             listOf(
                 "Applied before playback, on resume and to media-controller requests. Percentage is signal gain, not a guarantee of sound pressure; headphones and source levels still matter.",

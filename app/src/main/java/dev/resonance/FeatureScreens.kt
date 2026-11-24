@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -170,110 +169,7 @@ fun FeatureScreen(
                 }
             }
             "volume" -> {
-                var limit by remember {
-                    mutableFloatStateOf(VolumePolicy.output(1f, settings[AppSettings.VolumeLimit]))
-                }
-                var systemGuard by remember {
-                    mutableStateOf(settings[AppSettings.SystemVolumeGuard])
-                }
-                SectionLabel(designText(copy, "gain"))
-                Text(
-                    percentLabel(copy, limit),
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 72.sp),
-                    fontFamily = LocalTechnical.current,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(copy["output_limit"], style = MaterialTheme.typography.titleMedium)
-                Slider(
-                    modifier = Modifier.semantics { contentDescription = copy["output_limit"] },
-                    value = limit,
-                    onValueChange = {
-                        limit = it
-                        settings.set(AppSettings.VolumeLimit, it)
-                    },
-                    valueRange = 0f..VolumePolicy.MAX_GAIN,
-                    steps = 7,
-                )
-                Text(copy["volume_hint"], style = MaterialTheme.typography.bodyMedium)
-                if (actualVolume != null)
-                    Text(
-                        "${refinementText(copy, "current_output")} · ${percentLabel(copy, actualVolume)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                HorizontalDivider()
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(copy["system_guard"], Modifier.weight(1f))
-                    Switch(
-                        systemGuard,
-                        {
-                            systemGuard = it
-                            settings.set(AppSettings.SystemVolumeGuard, it)
-                        },
-                        modifier = Modifier.semantics { contentDescription = copy["system_guard"] },
-                    )
-                }
-                Text(
-                    copy["system_guard_hint"],
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            "motion" -> {
-                val enabled by rememberSetting(AppSettings.Motion)
-                val respectSystem by rememberSetting(AppSettings.RespectSystemMotion)
-                val policy = LocalMotionPolicy.current
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(designText(copy, "animate"), Modifier.weight(1f))
-                    Switch(
-                        enabled,
-                        {
-                            settings.set(AppSettings.Motion, it)
-                        },
-                        modifier = Modifier.semantics { contentDescription = copy["motion"] },
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(refinementText(copy, "respect_motion"), Modifier.weight(1f))
-                    Switch(
-                        checked = respectSystem,
-                        onCheckedChange = {
-                            settings.set(AppSettings.RespectSystemMotion, it)
-                        },
-                        enabled = enabled,
-                        modifier =
-                            Modifier.semantics {
-                                contentDescription = refinementText(copy, "respect_motion")
-                            },
-                    )
-                }
-                Text(
-                    refinementText(copy, "respect_motion_hint"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (policy.systemScale == 0f)
-                    Text(
-                        refinementText(copy, "system_motion_off"),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                HorizontalDivider()
-                SectionLabel(designText(copy, "preview"))
-                PlaybackGlyph(playing, Modifier.fillMaxWidth().height(176.dp), motion = enabled)
-                if (!playing)
-                    Text(
-                        refinementText(copy, "preview_play"),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                Text(copy["motion_hint"], style = MaterialTheme.typography.bodyMedium)
+                VolumeControl(copy)
             }
             "mac" -> {
                 var address by
@@ -291,9 +187,15 @@ fun FeatureScreen(
                     scope.launch {
                         app.mac.busy.value = true
                         try {
+                            var catalog: List<MediaEntry> = emptyList()
                             withContext(Dispatchers.IO) {
-                                app.mac.connect(address, key, app.library::acceptRemote)
+                                app.mac.connect(address, key) { items ->
+                                    app.library.acceptRemote(items)
+                                    catalog = items
+                                }
                             }
+                            if (incoming?.getQueryParameter("sync") == "1")
+                                app.syncConnectedCatalog(catalog)
                             val hash = incoming?.getQueryParameter("download")
                             if (hash != null) {
                                 val target =

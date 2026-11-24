@@ -3,9 +3,6 @@ package dev.resonance
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.SharedPreferences
-import android.media.AudioDeviceCallback
-import android.media.AudioDeviceInfo
-import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.*
@@ -29,25 +26,11 @@ import org.json.JSONArray
 class PlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private lateinit var session: MediaSession
-    private val audio by lazy { getSystemService(AudioManager::class.java) }
     private val settings by lazy { appPreferences() }
-    private val cap
-        get() = VolumePolicy.output(1f, settings[AppSettings.VolumeLimit])
+    private val gain
+        get() = settings[AppSettings.VolumeLimit]
 
     private var stopSettingsObservation: (() -> Unit)? = null
-    private val routeListener =
-        object : AudioDeviceCallback() {
-            override fun onAudioDevicesAdded(devices: Array<out AudioDeviceInfo>) {
-                if (player.playWhenReady) guardSystemVolume()
-            }
-        }
-
-    private fun guardSystemVolume() {
-        if (!settings[AppSettings.SystemVolumeGuard]) return
-        val allowed = (audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC) * cap).toInt()
-        if (audio.getStreamVolume(AudioManager.STREAM_MUSIC) > allowed)
-            runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, allowed, 0) }
-    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val preferences by lazy { getSharedPreferences("playback", MODE_PRIVATE) }
@@ -80,7 +63,7 @@ class PlaybackService : MediaSessionService() {
                 .setMediaSourceFactory(DefaultMediaSourceFactory(source))
                 .build()
                 .apply {
-                    volume = cap
+                    volume = gain
                     setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(C.USAGE_MEDIA)
@@ -103,30 +86,17 @@ class PlaybackService : MediaSessionService() {
                 Intent(this, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-        val volumeGuard =
-            object : ForwardingPlayer(player) {
-                override fun setVolume(volume: Float) {
-                    this@PlaybackService.player.volume = VolumePolicy.output(volume, cap)
-                }
-            }
         val protectedPlayer =
-            object : ForwardingSimpleBasePlayer(volumeGuard) {
+            object : ForwardingSimpleBasePlayer(player) {
                 override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
-                    if (playWhenReady) {
-                        if (player.playbackState == Player.STATE_ENDED)
-                            player.seekToDefaultPosition(0)
-                        guardSystemVolume()
-                    }
+                    if (playWhenReady && player.playbackState == Player.STATE_ENDED)
+                        player.seekToDefaultPosition(0)
                     return super.handleSetPlayWhenReady(playWhenReady)
                 }
             }
         stopSettingsObservation = settings.observe { key ->
-            if (key == AppSettings.VolumeLimit.key || key == AppSettings.SystemVolumeGuard.key) {
-                player.volume = cap
-                if (player.playWhenReady) guardSystemVolume()
-            }
+            if (key == AppSettings.VolumeLimit.key) player.volume = gain
         }
-        audio.registerAudioDeviceCallback(routeListener, null)
         session =
             MediaSession.Builder(this, protectedPlayer)
                 .setSessionActivity(activity)
@@ -358,11 +328,8 @@ class PlaybackService : MediaSessionService() {
             savePosition()
             var lastSaved = android.os.SystemClock.elapsedRealtime()
             while (isActive) {
-                delay(
-                    if (player.isPlaying && settings[AppSettings.SystemVolumeGuard]) 250 else 1000
-                )
+                delay(1000)
                 if (player.isPlaying) {
-                    guardSystemVolume()
                     val now = android.os.SystemClock.elapsedRealtime()
                     if (now - lastSaved >= 1000) {
                         saveCurrentPosition()
@@ -422,7 +389,6 @@ class PlaybackService : MediaSessionService() {
         scope.cancel()
         stopSettingsObservation?.invoke()
         stopSettingsObservation = null
-        audio.unregisterAudioDeviceCallback(routeListener)
         session.release()
         player.release()
         super.onDestroy()
