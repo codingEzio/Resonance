@@ -70,26 +70,62 @@ internal fun ResonanceTheme(
             )
         )
     val roboto = FontFamily(Font(R.font.roboto))
+    val privateFonts =
+        if (BuildConfig.PRESENTATION_PROFILE == "bundled") {
+            val assets = LocalContext.current.assets
+            remember(assets, resources) {
+                val text =
+                    android.graphics.fonts.Font.Builder(assets, "private-fonts/timeless.ttf")
+                        .setFontVariationSettings("'STYL' 0")
+                        .build()
+                val emoji =
+                    android.graphics.fonts.Font.Builder(assets, "private-fonts/emoji3d.ttf").build()
+                val dots =
+                    android.graphics.fonts.Font.Builder(resources, R.font.doto)
+                        .setFontVariationSettings("'wght' 700")
+                        .build()
+                fun withEmoji(font: android.graphics.fonts.Font) =
+                    FontFamily(
+                        android.graphics.Typeface.CustomFallbackBuilder(
+                                android.graphics.fonts.FontFamily.Builder(font).build()
+                            )
+                            .addCustomFallback(
+                                android.graphics.fonts.FontFamily.Builder(emoji).build()
+                            )
+                            .setSystemFallback("sans-serif")
+                            .build()
+                    )
+                withEmoji(text) to withEmoji(dots)
+            }
+        } else null
+    val privateFont = privateFonts?.first
+    val privateDots = privateFonts?.second ?: doto
+    val selectedPrivateFont =
+        if (face == "doto" && privateFont != null) privateDots else privateFont
     val normal =
-        when (face) {
-            "pixel" -> pixel
-            "compact" -> compact
-            "doto" -> doto
-            "roboto" -> roboto
-            "system" -> FontFamily.SansSerif
-            else -> geist
-        }
+        selectedPrivateFont
+            ?: when (face) {
+                "pixel" -> pixel
+                "compact" -> compact
+                "doto" -> doto
+                "roboto" -> roboto
+                "system" -> FontFamily.SansSerif
+                else -> geist
+            }
     val mono =
-        when (face) {
-            "pixel" -> pixel
-            "compact" -> compact
-            "doto" -> doto
-            "roboto" -> FontFamily(Font(R.font.roboto_mono))
-            "system" -> FontFamily.Monospace
-            else -> geistMono
-        }
-    val display = if (face in listOf("nothing", "pixel")) doto else normal
-    val dense = if (face == "roboto") FontFamily(Font(R.font.roboto_condensed)) else normal
+        selectedPrivateFont
+            ?: when (face) {
+                "pixel" -> pixel
+                "compact" -> compact
+                "doto" -> doto
+                "roboto" -> FontFamily(Font(R.font.roboto_mono))
+                "system" -> FontFamily.Monospace
+                else -> geistMono
+            }
+    val display = if (face in listOf("nothing", "pixel")) privateDots else normal
+    val dense =
+        if (face == "roboto" && privateFont == null) FontFamily(Font(R.font.roboto_condensed))
+        else normal
     val background = if (dark) Color(0xFF111111) else Color(0xFFF5F4F0)
     val foreground = if (dark) Color(0xFFF5F4F0) else Color(0xFF171717)
     val surface = if (dark) Color(0xFF202020) else Color(0xFFEAE9E5)

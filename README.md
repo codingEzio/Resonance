@@ -46,6 +46,15 @@ key, personal configuration or private asset is required.
 
 For a local build override, create an ignored `Local/android-build.properties` and select it with `-Presonance.localBuildConfig=Local/android-build.properties`. Set `applicationId` if needed. Optional signing requires all four properties: `storeFile`, `storePasswordEnv`, `keyAlias`, and `keyPasswordEnv`; the last two environment-name properties name variables containing the passwords. A selected missing file, incomplete signing, missing password or unknown property fails the build. Without an override, the public ID and unsigned release remain the defaults. Keep keys and this file private.
 
+The optional personal `bundled` profile also requires separately licensed font inputs under
+`app/src/main/assets/private-fonts/`: `timeless.ttf`, `emoji3d.ttf`, and their accompanying
+`timeless-license.pdf` and `emoji3d-license.txt`. A `retired-shelf-groups.txt` file lists any
+explicitly retired shelf group names, one per line; it may be empty. On first launch each named
+group is forgotten from the remote catalog while local copies and other groups are preserved.
+These inputs are ignored by Git; acquire and
+verify them separately before building. They are embedded in the personal APK, which must be
+distributed only as permitted by the included licenses. The portable profile does not require them.
+
 Optional local extensions may be linked at `Mac/`, the ignored `scripts/mac*` and maintenance-script paths, and ignored presentation asset paths. They are not supplied by this checkout; confirm their own dependencies before use.
 
 ## Optional LAN shelf

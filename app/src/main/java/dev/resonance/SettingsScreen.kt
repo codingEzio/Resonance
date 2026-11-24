@@ -116,41 +116,47 @@ fun SettingsScreen(
                 )
             }
         }
-        var fontMenu by remember { mutableStateOf(false) }
-        val fontChoices =
-            listOf(
-                Triple("pixel", refinementText(copy, "font_pixel"), "Geist Pixel + Doto"),
-                Triple("nothing", refinementText(copy, "font_clean"), "Geist + Doto"),
-                Triple("compact", refinementText(copy, "font_compact"), "DeparturePixelZh Compact"),
-                Triple("doto", refinementText(copy, "font_dots"), "Doto Sans"),
-                Triple("roboto", "Roboto", "Roboto Sans"),
-                Triple("system", copy["system_font"], copy["system"]),
-            )
-        Box {
-            SettingsLink(
-                copy["font"],
-                fontChoices.firstOrNull { it.first == font }?.second ?: font,
-            ) {
-                fontMenu = true
-            }
-            DropdownMenu(expanded = fontMenu, onDismissRequest = { fontMenu = false }) {
-                for ((value, label, detail) in fontChoices) DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(label)
-                            Text(
-                                detail,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                    leadingIcon = { RadioButton(font == value, onClick = null) },
-                    onClick = {
-                        setFont(value)
-                        fontMenu = false
-                    },
+        if (BuildConfig.PRESENTATION_PROFILE != "bundled") {
+            var fontMenu by remember { mutableStateOf(false) }
+            val fontChoices =
+                listOf(
+                    Triple("pixel", refinementText(copy, "font_pixel"), "Geist Pixel + Doto"),
+                    Triple("nothing", refinementText(copy, "font_clean"), "Geist + Doto"),
+                    Triple(
+                        "compact",
+                        refinementText(copy, "font_compact"),
+                        "DeparturePixelZh Compact",
+                    ),
+                    Triple("doto", refinementText(copy, "font_dots"), "Doto Sans"),
+                    Triple("roboto", "Roboto", "Roboto Sans"),
+                    Triple("system", copy["system_font"], copy["system"]),
                 )
+            Box {
+                SettingsLink(
+                    copy["font"],
+                    fontChoices.firstOrNull { it.first == font }?.second ?: font,
+                ) {
+                    fontMenu = true
+                }
+                DropdownMenu(expanded = fontMenu, onDismissRequest = { fontMenu = false }) {
+                    for ((value, label, detail) in fontChoices) DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(label)
+                                Text(
+                                    detail,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        leadingIcon = { RadioButton(font == value, onClick = null) },
+                        onClick = {
+                            setFont(value)
+                            fontMenu = false
+                        },
+                    )
+                }
             }
         }
         SettingsDivider()

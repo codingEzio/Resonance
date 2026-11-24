@@ -340,6 +340,46 @@ class LibraryDb(context: Context, name: String = "library.db") :
         changed()
     }
 
+    /** Explicitly forget a removed shelf group. Never remove a local file or another group. */
+    @Synchronized
+    fun forgetRemoteGroup(group: String): Int {
+        require(group.isNotBlank())
+        val db = writableDatabase
+        var removed = 0
+        db.beginTransaction()
+        try {
+            for (entry in entries()) {
+                if (entry.locations.none { it.group == group }) continue
+                val remaining = entry.locations.filterNot { it.group == group }
+                if (remaining.isNotEmpty()) {
+                    db.execSQL(
+                        "UPDATE media SET library_locations=? WHERE id=?",
+                        arrayOf<Any>(encodeLocations(remaining), entry.id),
+                    )
+                } else if (hasLocal(entry.id)) {
+                    db.delete(
+                        "sources",
+                        "media_id=? AND kind='remote'",
+                        arrayOf(entry.id.toString()),
+                    )
+                    db.execSQL(
+                        "UPDATE media SET library_locations='[]' WHERE id=?",
+                        arrayOf(entry.id),
+                    )
+                } else {
+                    db.delete("sources", "media_id=?", arrayOf(entry.id.toString()))
+                    db.delete("media", "id=?", arrayOf(entry.id.toString()))
+                    removed++
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        changed()
+        return removed
+    }
+
     fun hasLocal(id: Long): Boolean =
         readableDatabase
             .rawQuery(

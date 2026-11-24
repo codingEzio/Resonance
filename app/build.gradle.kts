@@ -50,6 +50,13 @@ require(presentationProfile != "portable" || presentationSource == "src/main/ass
     "Portable builds cannot include a custom presentation source"
 }
 val packagedAssets = layout.buildDirectory.dir("generated/presentationAssets/$presentationProfile")
+if (presentationProfile == "bundled") {
+    listOf("timeless.ttf", "emoji3d.ttf", "timeless-license.pdf", "emoji3d-license.txt", "retired-shelf-groups.txt").forEach {
+        require(file("src/main/assets/private-fonts/$it").isFile) {
+            "Bundled presentation requires the licensed private font asset: $it"
+        }
+    }
+}
 val preparePresentationAssets by tasks.registering(Sync::class) {
     inputs.property("presentationProfile", presentationProfile)
     // Font notices are shared and retained even when no private artwork/data is packaged.

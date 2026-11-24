@@ -90,6 +90,19 @@ class ResonanceApp : Application() {
         appPreferences().applyLegacyDefaults()
         LibraryPresentation.install(loadPresentationAssets(assets))
         library = LibraryDb(this)
+        if (BuildConfig.PRESENTATION_PROFILE == "bundled") {
+            val preferences = getSharedPreferences("retired_shelf_groups", 0)
+            val names =
+                assets.open("private-fonts/retired-shelf-groups.txt").bufferedReader().use {
+                    it.readLines().map(String::trim).filter(String::isNotEmpty).distinct()
+                }
+            for (name in names) {
+                if (!preferences.getBoolean(name, false)) {
+                    library.forgetRemoteGroup(name)
+                    check(preferences.edit().putBoolean(name, true).commit())
+                }
+            }
+        }
         downloadStopReason.value = downloadSettings.getString("stop_reason", "").orEmpty()
         library.recoverDownloads()
         scope.launch {
