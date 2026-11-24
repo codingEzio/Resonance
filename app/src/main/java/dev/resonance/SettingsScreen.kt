@@ -1,6 +1,5 @@
 package dev.resonance
 
-import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,10 +16,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    app: ResonanceApp,
     copy: Copy,
     theme: String,
     font: String,
@@ -36,6 +39,9 @@ fun SettingsScreen(
     val materialYou by rememberSetting(AppSettings.MaterialYou)
     val motion = LocalMotionPolicy.current
     val volumeLimit by rememberSetting(AppSettings.VolumeLimit)
+    val scope = rememberCoroutineScope()
+    var syncing by remember { mutableStateOf(false) }
+    var syncStatus by remember { mutableStateOf("") }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)
     ) {
@@ -59,30 +65,6 @@ fun SettingsScreen(
                 }
             }
         }
-        Text(refinementText(copy, "colors"), style = MaterialTheme.typography.bodyLarge)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            listOf(false, true).forEachIndexed { index, value ->
-                SegmentedButton(
-                    selected = materialYou == value,
-                    onClick = { preferences.set(AppSettings.MaterialYou, value) },
-                    shape = SegmentedButtonDefaults.itemShape(index, 2),
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(
-                        refinementText(copy, if (value) "material_colors" else "resonance_colors"),
-                        maxLines = 1,
-                    )
-                }
-            }
-        }
-        Text(
-            refinementText(
-                copy,
-                if (materialYou && Build.VERSION.SDK_INT < 31) "color_older" else "color_hint",
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Text(
             refinementText(copy, "language"),
             Modifier.padding(top = 16.dp),
@@ -161,25 +143,7 @@ fun SettingsScreen(
         }
         SettingsDivider()
         SectionLabel(refinementText(copy, "playback"))
-        SettingsLink(
-            copy["volume"],
-            "${refinementText(copy, "volume_summary")} · ${percentLabel(copy, volumeLimit)}",
-        ) {
-            navigate("volume")
-        }
-        SettingsLink(
-            copy["motion"],
-            refinementText(
-                copy,
-                when {
-                    !motion.enabled -> "animation_off"
-                    !motion.respectSystem -> "animation_forced"
-                    else -> "animation_on"
-                },
-            ),
-        ) {
-            navigate("motion")
-        }
+        VolumeControl(copy)
         SettingsDivider()
         SectionLabel(libraryPreferenceText(copy, "library"))
         for ((setting, label) in
@@ -200,11 +164,6 @@ fun SettingsScreen(
                         libraryPreferenceText(copy, label),
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    Text(
-                        refinementText(copy, "${label}_hint"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
                 Switch(
                     checked = enabled,
@@ -217,20 +176,46 @@ fun SettingsScreen(
             }
         }
         SettingsDivider()
-        SectionLabel(refinementText(copy, "connections"))
-        for ((destination, summary) in
-            listOf(
-                "mac" to "mac_summary",
-                "downloads" to "downloads_summary",
-                "permissions" to "permissions_summary",
-            )) SettingsLink(copy[destination], refinementText(copy, summary)) {
-            navigate(destination)
+        SectionLabel(listOf("Sync", "同步", "同步")[copy.languageIndex])
+        Button(
+            enabled = !syncing,
+            onClick = {
+                syncing = true
+                scope.launch {
+                    try {
+                        var catalog: List<MediaEntry> = emptyList()
+                        withContext(Dispatchers.IO) {
+                            app.mac.connect(app.mac.base, app.mac.key) { items ->
+                                app.library.acceptRemote(items)
+                                catalog = items
+                            }
+                        }
+                        val added = app.syncConnectedCatalog(catalog)
+                        syncStatus =
+                            listOf("Queued: $added", "已排入：$added", "已排入：$added")[copy.languageIndex]
+                    } catch (error: Exception) {
+                        syncStatus =
+                            if (error.message == "storage_full")
+                                listOf("Not enough storage.", "儲存空間不足。", "存储空间不足。")[
+                                    copy.languageIndex]
+                            else
+                                listOf(
+                                    "Sync failed. Check the Mac and retry.",
+                                    "同步失敗，請檢查 Mac 後重試。",
+                                    "同步失败，请检查 Mac 后重试。",
+                                )[copy.languageIndex]
+                    } finally {
+                        syncing = false
+                    }
+                }
+            },
+        ) {
+            Text(listOf("Sync now", "立即同步", "立即同步")[copy.languageIndex])
         }
+        if (syncStatus.isNotEmpty()) Text(syncStatus, style = MaterialTheme.typography.bodySmall)
+        SettingsLink(copy["downloads"], "") { navigate("downloads") }
         SettingsDivider()
         SectionLabel(refinementText(copy, "more"))
-        SettingsLink(copy["features"], refinementText(copy, "features_summary")) {
-            navigate("features")
-        }
         Text(
             copy["about"],
             Modifier.padding(top = 16.dp),
@@ -288,11 +273,12 @@ private fun SettingsLink(title: String, summary: String, action: () -> Unit) {
     ) {
         Column(Modifier.weight(1f).padding(top = 12.dp, bottom = 12.dp, end = 12.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (summary.isNotBlank())
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
         }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
     }

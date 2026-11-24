@@ -66,8 +66,8 @@ internal fun Resonance(app: ResonanceApp, initialScreen: String = "library") {
     var backStack by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     val pageState = rememberSaveableStateHolder()
     val librarySearchEnabled by rememberSetting(AppSettings.LibrarySearch)
-    val motion by rememberSetting(AppSettings.Motion)
-    val materialYou by rememberSetting(AppSettings.MaterialYou)
+    val motion = true
+    val materialYou = true
     var librarySearchAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var libraryAvailabilityAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     fun navigate(target: String) {
@@ -278,8 +278,7 @@ internal fun Resonance(app: ResonanceApp, initialScreen: String = "library") {
             backStack = ArrayList(backStack.dropLast(1))
         } else
             screen =
-                if (screen in listOf("volume", "permissions", "downloads", "motion", "features"))
-                    "settings"
+                if (screen in listOf("volume", "permissions", "downloads", "features")) "settings"
                 else "library"
     }
     BackHandler(screen != "library") { back() }
@@ -291,7 +290,10 @@ internal fun Resonance(app: ResonanceApp, initialScreen: String = "library") {
                 else ScaffoldDefaults.contentWindowInsets,
             topBar = {
                 if (screen != "now")
-                    Column(Modifier.statusBarsPadding().displayCutoutPadding()) {
+                    Column(
+                        if (fullScreen) Modifier
+                        else Modifier.statusBarsPadding().displayCutoutPadding()
+                    ) {
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -326,16 +328,6 @@ internal fun Resonance(app: ResonanceApp, initialScreen: String = "library") {
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                IconButton(onClick = { libraryAvailabilityAction?.invoke() }) {
-                                    Icon(
-                                        AvailabilityIcon,
-                                        libraryText(copy, "availability"),
-                                        tint =
-                                            if (sourceFilter == "all_sources")
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            else MaterialTheme.colorScheme.primary,
-                                    )
-                                }
                             }
                         }
                         HorizontalDivider()
@@ -433,8 +425,7 @@ internal fun Resonance(app: ResonanceApp, initialScreen: String = "library") {
                     }
                 }
                 when {
-                    screen in
-                        listOf("permissions", "volume", "motion", "mac", "downloads", "features") ->
+                    screen in listOf("permissions", "volume", "mac", "downloads", "features") ->
                         FeatureScreen(
                             screen,
                             app,
@@ -449,6 +440,7 @@ internal fun Resonance(app: ResonanceApp, initialScreen: String = "library") {
                         )
                     screen == "settings" ->
                         SettingsScreen(
+                            app,
                             copy,
                             theme,
                             face,
