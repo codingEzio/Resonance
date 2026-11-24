@@ -14,6 +14,10 @@ Import files through Android's file picker. Resonance keeps imported copies in i
 User-selected LAN connections are optional; existing local files can play offline. Codec support
 depends on the device.
 
+For a configured personal shelf, run `scripts/usb-sync` on the Mac with one authorized Android
+phone connected. Confirm the connection on the phone and keep the command running until downloads
+finish. The script forwards only a loopback port over USB and removes its own forwarding on exit.
+
 ## Source and installation
 
 This source is 0.9.2 (version code 11). No public signed APK has been verified

@@ -66,6 +66,34 @@ class ResonanceApp : Application() {
             receipt
         }
 
+    /** Queue only the current connected catalog, preserving existing offline copies. */
+    suspend fun syncConnectedCatalog(items: List<MediaEntry>): Int =
+        withContext(Dispatchers.IO) {
+            val missing =
+                items
+                    .mapNotNull { library.byHash(it.contentHash) }
+                    .filterNot { library.hasLocal(it.id) }
+            check(
+                StatFs(filesDir.path).availableBytes >
+                    missing.sumOf { it.bytes } + DownloadPolicy.STORAGE_RESERVE_BYTES
+            ) {
+                "storage_full"
+            }
+            var accepted = 0
+            try {
+                for (item in missing) if (library.requestDownload(item.id)) accepted++
+            } finally {
+                if (accepted > 0) {
+                    clearDownloadStop()
+                    androidx.core.content.ContextCompat.startForegroundService(
+                        this@ResonanceApp,
+                        Intent(this@ResonanceApp, DownloadService::class.java),
+                    )
+                }
+            }
+            accepted
+        }
+
     fun pauseDownloadRecovery(reason: String) {
         // Persist the stop before Activity foreground effects can attempt recovery.
         downloadSettings.edit().putString("stop_reason", reason).commit()

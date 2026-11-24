@@ -1,0 +1,41 @@
+#!/bin/zsh
+set -euo pipefail
+cd "${0:A:h:h}"
+port=10002
+serial=${RESONANCE_ANDROID_SERIAL:-}
+if [[ -z "$serial" ]]; then
+  devices=(${(f)"$(adb devices | awk 'NR>1 && $2=="device" {print $1}')"})
+  (( ${#devices} == 1 )) || { print -u2 'Connect one authorized Android phone or set RESONANCE_ANDROID_SERIAL.'; exit 1; }
+  serial=$devices[1]
+fi
+adb -s "$serial" get-state | grep -qx device
+[[ "$(adb -s "$serial" get-devpath)" == usb:* ]] || {
+  print -u2 'This sync requires an Android device connected over USB.'; exit 1
+}
+if adb -s "$serial" reverse --list | grep -q "tcp:$port "; then
+  print -u2 "USB port $port is already in use; existing forwarding was left unchanged."; exit 1
+fi
+if lsof -nP -iTCP:$port -sTCP:LISTEN >/dev/null; then
+  print -u2 "Mac port $port is already in use; existing service was left unchanged."; exit 1
+fi
+python3 - <<'PY'
+import json,os
+p=os.path.expanduser('~/Library/Application Support/ResonanceShelf/config.json')
+x=json.load(open(p)); roots=x.get('libraries',[])
+if len(roots)!=1 or roots[0].get('role') != 'collections':
+ raise SystemExit('Shelf must contain exactly one collections-role library before USB sync.')
+PY
+RESONANCE_BIND=127.0.0.1 RESONANCE_PORT=$port RESONANCE_STANDALONE=1 ./scripts/serve &
+pid=$!
+cleanup() { adb -s "$serial" reverse --remove tcp:$port >/dev/null 2>&1 || true; kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+adb -s "$serial" reverse tcp:$port tcp:$port >/dev/null
+for i in {1..60}; do
+  if curl --noproxy '*' -fsS "http://127.0.0.1:$port/health" 2>/dev/null | grep -q '"indexing":false'; then break; fi
+  kill -0 "$pid" 2>/dev/null || { print -u2 'Shelf failed to start.'; exit 1; }
+  sleep 1
+done
+curl --noproxy '*' -fsS "http://127.0.0.1:$port/health" | grep -q '"indexing":false' || { print -u2 'Catalog scan did not finish.'; exit 1; }
+adb -s "$serial" shell am start -a android.intent.action.VIEW -d 'resonance://connect?base=http%3A%2F%2F127.0.0.1%3A10002\&sync=1' dev.resonance >/dev/null
+print '在手机上点“连接”开始同步；保持 USB 连接。完成后按 Enter 关闭临时服务。'
+read -r
