@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
+import android.os.Looper
 import androidx.media3.common.*
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -24,6 +25,31 @@ import org.json.JSONArray
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackService : MediaSessionService() {
+    companion object {
+        @Volatile
+        internal var activeMediaId: String? = null
+            private set
+
+        @Volatile private var activeService: PlaybackService? = null
+
+        internal fun prepareRetirement(id: Long): Boolean {
+            check(Looper.myLooper() == Looper.getMainLooper())
+            val service = activeService ?: return true
+            if (!service::player.isInitialized) return false
+            val mediaId = "entry:$id"
+            if (
+                service.player.currentMediaItem?.mediaId == mediaId &&
+                    service.player.playbackState != Player.STATE_ENDED
+            )
+                return false
+            for (index in service.player.mediaItemCount - 1 downTo 0) {
+                if (service.player.getMediaItemAt(index).mediaId == mediaId)
+                    service.player.removeMediaItem(index)
+            }
+            return true
+        }
+    }
+
     private lateinit var player: ExoPlayer
     private lateinit var session: MediaSession
     private val settings by lazy { appPreferences() }
@@ -41,6 +67,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        activeService = this
         val app = application as ResonanceApp
         val source =
             ResolvingDataSource.Factory(
@@ -275,6 +302,16 @@ class PlaybackService : MediaSessionService() {
                 }
 
                 override fun onEvents(p: Player, events: Player.Events) {
+                    val previous = activeMediaId
+                    activeMediaId =
+                        p.currentMediaItem?.mediaId.takeUnless {
+                            p.playbackState == Player.STATE_ENDED
+                        }
+                    if (previous != activeMediaId && previous != null) {
+                        val app = application as ResonanceApp
+                        if (app.mirror.status.value == "waiting")
+                            app.scope.launch { app.mirror.finishIfReady() }
+                    }
                     observedMediaId = p.currentMediaItem?.mediaId
                     observedDurationMs = p.duration
                     savePosition()
@@ -385,6 +422,10 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = session
 
     override fun onDestroy() {
+        activeMediaId = null
+        activeService = null
+        val app = application as ResonanceApp
+        if (app.mirror.status.value == "waiting") app.scope.launch { app.mirror.finishIfReady() }
         savePosition()
         scope.cancel()
         stopSettingsObservation?.invoke()

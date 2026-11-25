@@ -18,6 +18,12 @@ import java.net.HttpURLConnection
 import kotlinx.coroutines.*
 
 class DownloadService : Service() {
+    companion object {
+        @Volatile
+        internal var workerRunning = false
+            private set
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var worker: Job? = null
     private var latestStartId = 0
@@ -105,7 +111,8 @@ class DownloadService : Service() {
     }
 
     private fun startWorker() {
-        if (!stopping && worker?.isActive != true)
+        if (!stopping && worker?.isActive != true) {
+            workerRunning = true
             worker = scope.launch {
                 try {
                     while (isActive && !stopping) {
@@ -154,8 +161,11 @@ class DownloadService : Service() {
                     }
                 } finally {
                     app.library.recoverDownloads()
+                    if (!stopping && isActive) app.mirror.finishIfReady()
+                    else app.mirror.status.value = "retry"
                     releaseWakeLock()
                     withContext(NonCancellable + Dispatchers.Main.immediate) {
+                        workerRunning = false
                         worker = null
                         // Only a live worker finishing normally can admit a racing new request.
                         if (scope.isActive && !stopping && app.library.nextDownload() != null)
@@ -167,11 +177,17 @@ class DownloadService : Service() {
                     }
                 }
             }
+        }
     }
 
     private fun download(entry: MediaEntry) {
         val db = app.library
-        if (db.hasOfflineCopy(entry.id)) {
+        fun stillCurrent(): Boolean =
+            db.get(entry.id)?.let {
+                it.contentHash == entry.contentHash &&
+                    it.downloadState in listOf("queued", "running")
+            } == true
+        if (db.hasUsableOffline(entry, File(filesDir, "offline"))) {
             db.downloadProgress(entry.id, "complete", entry.bytes)
             return
         }
@@ -184,11 +200,16 @@ class DownloadService : Service() {
                 target.inputStream().use {
                     Fingerprint.read(it) {
                         renewWakeLock()
-                        !stopping && worker?.isActive != false
+                        !stopping && worker?.isActive != false && stillCurrent()
                     }
                 }
             if (hash.first == entry.contentHash && hash.second == entry.bytes) {
-                db.finishDownload(entry.id, Uri.fromFile(target).toString(), hash.second)
+                db.finishDownload(
+                    entry.id,
+                    Uri.fromFile(target).toString(),
+                    hash.second,
+                    entry.contentHash,
+                )
                 return
             }
         }
@@ -225,11 +246,7 @@ class DownloadService : Service() {
                     connection.inputStream.use { input ->
                         val buffer = ByteArray(128 * 1024)
                         while (true) {
-                            check(
-                                !stopping &&
-                                    worker?.isActive != false &&
-                                    db.get(entry.id)?.downloadState != "paused"
-                            ) {
+                            check(!stopping && worker?.isActive != false && stillCurrent()) {
                                 "cancelled"
                             }
                             val count = input.read(buffer)
@@ -270,9 +287,7 @@ class DownloadService : Service() {
             part.inputStream().use {
                 Fingerprint.read(it) {
                     renewWakeLock()
-                    !stopping &&
-                        worker?.isActive != false &&
-                        db.get(entry.id)?.downloadState != "paused"
+                    !stopping && worker?.isActive != false && stillCurrent()
                 }
             }
         if (verified.first != entry.contentHash || verified.second != entry.bytes) {
@@ -280,9 +295,7 @@ class DownloadService : Service() {
             db.downloadProgress(entry.id, "running", 0)
             error("integrity")
         }
-        check(
-            !stopping && worker?.isActive != false && db.get(entry.id)?.downloadState != "paused"
-        ) {
+        check(!stopping && worker?.isActive != false && stillCurrent()) {
             "cancelled"
         }
         if (db.hasOfflineCopy(entry.id)) {
@@ -291,7 +304,12 @@ class DownloadService : Service() {
             return
         }
         check(part.renameTo(target)) { "download_failed" }
-        db.finishDownload(entry.id, Uri.fromFile(target).toString(), verified.second)
+        db.finishDownload(
+            entry.id,
+            Uri.fromFile(target).toString(),
+            verified.second,
+            entry.contentHash,
+        )
     }
 
     override fun onTimeout(startId: Int, fgsType: Int) {
@@ -306,6 +324,7 @@ class DownloadService : Service() {
 
     override fun onDestroy() {
         stopping = true
+        workerRunning = false
         activeConnection?.disconnect()
         scope.cancel()
         releaseWakeLock()

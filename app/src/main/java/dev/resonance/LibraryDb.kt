@@ -5,6 +5,8 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.net.Uri
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -112,18 +114,21 @@ class LibraryDb(context: Context, name: String = "library.db") :
     }
 
     fun entries(): List<MediaEntry> =
-        readableDatabase.rawQuery("$selectMedia WHERE state!='alias' ORDER BY id DESC", null).use {
-            c ->
-            buildList { while (c.moveToNext()) add(read(c)) }
-        }
+        readableDatabase
+            .rawQuery("$selectMedia WHERE state NOT IN ('alias','retired') ORDER BY id DESC", null)
+            .use { c ->
+                buildList { while (c.moveToNext()) add(read(c)) }
+            }
 
     fun get(id: Long): MediaEntry? =
-        readableDatabase.rawQuery("$selectMedia WHERE id=?", arrayOf(id.toString())).use {
-            if (it.moveToFirst()) {
-                val alias = it.getLong(it.getColumnIndexOrThrow("duplicate_of"))
-                if (alias > 0) get(alias) else read(it)
-            } else null
-        }
+        readableDatabase
+            .rawQuery("$selectMedia WHERE id=? AND state!='retired'", arrayOf(id.toString()))
+            .use {
+                if (it.moveToFirst()) {
+                    val alias = it.getLong(it.getColumnIndexOrThrow("duplicate_of"))
+                    if (alias > 0) get(alias) else read(it)
+                } else null
+            }
 
     fun nextQueued(): MediaEntry? =
         readableDatabase
@@ -284,9 +289,10 @@ class LibraryDb(context: Context, name: String = "library.db") :
             .use { if (it.moveToFirst()) get(it.getLong(0)) else null }
 
     @Synchronized
-    fun acceptRemote(items: List<MediaEntry>) {
+    fun acceptRemote(items: List<MediaEntry>, mirrorScope: String? = null) {
         require(items.size <= MediaLimits.CATALOG_ITEMS) { "capacity" }
         val db = writableDatabase
+        if (mirrorScope != null) ensureMirrorOwnership(db)
         db.beginTransaction()
         try {
             for (item in items) {
@@ -296,7 +302,16 @@ class LibraryDb(context: Context, name: String = "library.db") :
                     db.update(
                         "media",
                         ContentValues().apply {
-                            put("library_locations", encodeLocations(item.locations))
+                            val groups = item.locations.map { it.group }.toSet()
+                            put(
+                                "library_locations",
+                                encodeLocations(
+                                    existing.locations.filterNot { it.group in groups } +
+                                        item.locations
+                                ),
+                            )
+                            put("filename", item.filename)
+                            put("title", item.title)
                         },
                         "id=?",
                         arrayOf(existing.id.toString()),
@@ -332,12 +347,41 @@ class LibraryDb(context: Context, name: String = "library.db") :
                             }
                     complete(item.copy(id = actual))
                 }
+                if (mirrorScope != null) {
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO mirror_ownership(scope,hash) VALUES(?,?)",
+                        arrayOf(mirrorScope, item.contentHash),
+                    )
+                }
             }
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
         }
         changed()
+    }
+
+    private fun ensureMirrorOwnership(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS mirror_ownership(scope TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY(scope,hash))"
+        )
+    }
+
+    @Synchronized
+    fun mirrorHashes(scope: String): Set<String> {
+        val db = writableDatabase
+        ensureMirrorOwnership(db)
+        return db.rawQuery("SELECT hash FROM mirror_ownership WHERE scope=?", arrayOf(scope)).use {
+            rows ->
+            buildSet { while (rows.moveToNext()) add(rows.getString(0)) }
+        }
+    }
+
+    @Synchronized
+    fun forgetMirrorHash(scope: String, hash: String) {
+        val db = writableDatabase
+        ensureMirrorOwnership(db)
+        db.delete("mirror_ownership", "scope=? AND hash=?", arrayOf(scope, hash))
     }
 
     /** Explicitly forget a removed shelf group. Never remove a local file or another group. */
@@ -388,6 +432,92 @@ class LibraryDb(context: Context, name: String = "library.db") :
             )
             .use { it.moveToFirst() }
 
+    /** Remove only a previously confirmed mirror entry; never delete a document source. */
+    @Synchronized
+    fun retireMirrored(
+        hash: String,
+        group: String,
+        current: String,
+        offline: File,
+        explicitlyRetired: Boolean = false,
+        removeFromQueue: (Long) -> Boolean = { true },
+    ): String? {
+        val db = writableDatabase
+        val entry = byHash(hash) ?: return ""
+        if (
+            entry.locations.none { it.group == group } &&
+                !(explicitlyRetired && entry.locations.isEmpty())
+        )
+            return ""
+        val otherLocation = entry.locations.any { it.group != group }
+        val hasDocument =
+            db.rawQuery(
+                    "SELECT 1 FROM sources WHERE media_id=? AND kind NOT IN ('remote','download') LIMIT 1",
+                    arrayOf(entry.id.toString()),
+                )
+                .use { it.moveToFirst() }
+        if (otherLocation || hasDocument) {
+            db.update(
+                "media",
+                ContentValues().apply {
+                    put(
+                        "library_locations",
+                        encodeLocations(entry.locations.filterNot { it.group == group }),
+                    )
+                },
+                "id=?",
+                arrayOf(entry.id.toString()),
+            )
+            changed()
+            return ""
+        }
+        if (current == "entry:${entry.id}" || entry.downloadState in listOf("queued", "running"))
+            return null
+        val localUri =
+            db.rawQuery(
+                    "SELECT uri FROM sources WHERE media_id=? AND kind='download' LIMIT 1",
+                    arrayOf(entry.id.toString()),
+                )
+                .use { if (it.moveToFirst()) it.getString(0) else "" }
+        if (explicitlyRetired && entry.locations.isEmpty() && localUri.isEmpty()) return null
+        if (localUri.isNotEmpty()) {
+            val parsed = Uri.parse(localUri)
+            val expected = ownedOfflineFile(offline, hash, "media")
+            if (
+                parsed.scheme != "file" ||
+                    parsed.path == null ||
+                    File(parsed.path!!).canonicalFile != expected
+            )
+                return null
+        }
+        if (!removeFromQueue(entry.id)) return null
+        db.beginTransaction()
+        try {
+            db.delete("sources", "media_id=?", arrayOf(entry.id.toString()))
+            // Keep the row ID occupied: saved queues and resume positions use entry:<id>.
+            db.update(
+                "media",
+                ContentValues().apply {
+                    put("uri", "retired://${entry.id}")
+                    put("preferred_uri", "")
+                    put("content_hash", "")
+                    put("filename", "")
+                    put("title", "")
+                    put("library_locations", "[]")
+                    put("download_state", "none")
+                    put("state", "retired")
+                },
+                "id=?",
+                arrayOf(entry.id.toString()),
+            )
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        changed()
+        return localUri
+    }
+
     fun hasRemote(id: Long): Boolean =
         readableDatabase
             .rawQuery(
@@ -404,12 +534,74 @@ class LibraryDb(context: Context, name: String = "library.db") :
             )
             .use { it.moveToFirst() }
 
+    /** A verified app-owned copy must still exist at the expected path and size. */
     @Synchronized
-    fun requestDownload(id: Long): Boolean {
+    fun hasUsableOffline(entry: MediaEntry, offline: File, verifyHash: Boolean = false): Boolean {
+        val db = writableDatabase
+        val uri =
+            db.rawQuery(
+                    "SELECT uri FROM sources WHERE media_id=? AND kind='download' LIMIT 1",
+                    arrayOf(entry.id.toString()),
+                )
+                .use { if (it.moveToFirst()) it.getString(0) else return false }
+        val parsed = Uri.parse(uri)
+        val expected = ownedOfflineFile(offline, entry.contentHash, "media")
+        check(
+            parsed.scheme == "file" &&
+                parsed.path != null &&
+                File(parsed.path!!).canonicalFile == expected
+        ) {
+            "integrity"
+        }
+        if (expected.isFile) {
+            val valid =
+                expected.length() == entry.bytes &&
+                    (!verifyHash ||
+                        expected.inputStream().use { Fingerprint.read(it) }.first ==
+                            entry.contentHash)
+            if (valid) return true
+            check(
+                expected.renameTo(
+                    File(expected.parentFile, "${entry.contentHash}.corrupt-${System.nanoTime()}")
+                )
+            ) {
+                "integrity"
+            }
+        }
+        db.beginTransaction()
+        try {
+            db.delete(
+                "sources",
+                "media_id=? AND kind='download' AND uri=?",
+                arrayOf(entry.id.toString(), uri),
+            )
+            val fallback =
+                db.rawQuery(
+                        "SELECT uri FROM sources WHERE media_id=? AND kind!='download' ORDER BY CASE WHEN kind='remote' THEN 1 ELSE 0 END LIMIT 1",
+                        arrayOf(entry.id.toString()),
+                    )
+                    .use {
+                        if (it.moveToFirst()) it.getString(0)
+                        else "resonance://${entry.contentHash}"
+                    }
+            db.execSQL(
+                "UPDATE media SET preferred_uri=?,download_state='none',download_bytes=0 WHERE id=? AND preferred_uri=?",
+                arrayOf<Any>(fallback, entry.id, uri),
+            )
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        changed()
+        return false
+    }
+
+    @Synchronized
+    fun requestDownload(id: Long, requireOffline: Boolean = false): Boolean {
         val canonical = get(id) ?: return false
         if (
             hasOfflineCopy(canonical.id) ||
-                (hasLocal(canonical.id) && canonical.downloadState == "none")
+                (!requireOffline && hasLocal(canonical.id) && canonical.downloadState == "none")
         )
             return false
         check(hasRemote(canonical.id)) { "no_remote" }
@@ -569,10 +761,20 @@ class LibraryDb(context: Context, name: String = "library.db") :
     }
 
     @Synchronized
-    fun finishDownload(id: Long, uri: String, bytes: Long) {
+    fun finishDownload(id: Long, uri: String, bytes: Long, expectedHash: String? = null) {
         val db = writableDatabase
         db.beginTransaction()
         try {
+            if (expectedHash != null) {
+                val current = get(id)
+                check(
+                    current != null &&
+                        current.contentHash == expectedHash &&
+                        current.downloadState in listOf("queued", "running")
+                ) {
+                    "cancelled"
+                }
+            }
             db.insertWithOnConflict(
                 "sources",
                 null,

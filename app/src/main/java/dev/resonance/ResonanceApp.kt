@@ -5,8 +5,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.StatFs
 import android.provider.OpenableColumns
+import java.io.File
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.sync.Mutex
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class ResonanceApp : Application() {
@@ -18,6 +20,8 @@ class ResonanceApp : Application() {
     private var worker: Job? = null
     private val inspector by lazy { ContentMediaInspector(this) }
     val mac by lazy { MacLibrary(this) }
+    internal val mirror by lazy { MirrorCoordinator(this) }
+    private val syncMutex = Mutex()
     internal val wishlist by lazy { WishlistStore(getSharedPreferences(AppSettings.STORE, 0)) }
 
     fun download(id: Long) {
@@ -66,38 +70,87 @@ class ResonanceApp : Application() {
             receipt
         }
 
-    /** Queue only the current connected catalog, preserving existing offline copies. */
-    suspend fun syncConnectedCatalog(items: List<MediaEntry>): Int =
+    /** A complete Mac snapshot is staged before the device library is changed. */
+    suspend fun syncFrom(address: String? = null, key: String = mac.key): Int =
         withContext(Dispatchers.IO) {
-            val missing =
-                items
-                    .mapNotNull { library.byHash(it.contentHash) }
-                    .filterNot { library.hasLocal(it.id) }
-            check(
-                StatFs(filesDir.path).availableBytes >
-                    missing.sumOf { it.bytes } + DownloadPolicy.STORAGE_RESERVE_BYTES
-            ) {
-                "storage_full"
-            }
-            var accepted = 0
+            check(syncMutex.tryLock()) { "sync_busy" }
             try {
-                for (item in missing) if (library.requestDownload(item.id)) accepted++
-            } finally {
-                if (accepted > 0) {
-                    clearDownloadStop()
-                    androidx.core.content.ContextCompat.startForegroundService(
-                        this@ResonanceApp,
-                        Intent(this@ResonanceApp, DownloadService::class.java),
-                    )
+                check(!DownloadService.workerRunning) { "sync_busy" }
+                val pending = mirror.pendingHashes()
+                val waiting =
+                    library.entries().filter { it.downloadState in listOf("queued", "running") }
+                check(waiting.all { it.contentHash in pending }) {
+                    "sync_busy"
                 }
+                pauseDownloadRecovery("sync_preparing")
+                check(!DownloadService.workerRunning) { "sync_busy" }
+                mirror.status.value = "syncing"
+                val snapshot = mac.prepare(address ?: mac.preferredBase(), key, fresh = true)
+                require(snapshot.sourceId.isNotBlank()) { "catalog_scope" }
+                val mirrorScope =
+                    mirror.stage(
+                        snapshot.entries,
+                        snapshot.key,
+                        snapshot.sourceId,
+                        snapshot.retiredHashes,
+                    )
+                val offline = File(filesDir, "offline")
+                val verified = mirror.verifiedHashes(snapshot.key, snapshot.sourceId)
+                val missing =
+                    snapshot.entries.filter { item ->
+                        library.byHash(item.contentHash)?.let {
+                            library.hasUsableOffline(it, offline, item.contentHash !in verified)
+                        } != true
+                    }
+                check(DownloadPolicy.accepts(0, missing.size)) { "capacity" }
+                val remaining = missing.sumOf { item ->
+                    val part = File(offline, "${item.contentHash}.part")
+                    item.bytes - part.length().coerceIn(0, item.bytes)
+                }
+                check(
+                    StatFs(filesDir.path).availableBytes >
+                        remaining + DownloadPolicy.STORAGE_RESERVE_BYTES
+                ) {
+                    "storage_full"
+                }
+                val currentHashes = snapshot.entries.map { it.contentHash }.toSet()
+                for (item in waiting) if (item.contentHash !in currentHashes)
+                    library.cancelDownload(item.id)
+                library.acceptRemote(snapshot.entries, mirrorScope)
+                mac.commit(snapshot)
+                var accepted = 0
+                try {
+                    for (item in missing) {
+                        val current = library.byHash(item.contentHash) ?: error("catalog_changed")
+                        if (library.requestDownload(current.id, requireOffline = true)) accepted++
+                    }
+                } finally {
+                    if (accepted > 0) {
+                        clearDownloadStop()
+                        androidx.core.content.ContextCompat.startForegroundService(
+                            this@ResonanceApp,
+                            Intent(this@ResonanceApp, DownloadService::class.java),
+                        )
+                    }
+                }
+                if (missing.isEmpty()) {
+                    clearDownloadStop()
+                    mirror.finishIfReady()
+                }
+                accepted
+            } catch (error: Exception) {
+                mirror.status.value = "retry"
+                throw error
+            } finally {
+                syncMutex.unlock()
             }
-            accepted
         }
 
     fun pauseDownloadRecovery(reason: String) {
         // Persist the stop before Activity foreground effects can attempt recovery.
         downloadSettings.edit().putString("stop_reason", reason).commit()
         downloadStopReason.value = reason
+        mirror.status.value = "retry"
     }
 
     private fun clearDownloadStop() {
@@ -117,6 +170,7 @@ class ResonanceApp : Application() {
         super.onCreate()
         appPreferences().applyLegacyDefaults()
         LibraryPresentation.install(loadPresentationAssets(assets))
+        mac.restoreNames()
         library = LibraryDb(this)
         if (BuildConfig.PRESENTATION_PROFILE == "bundled") {
             val preferences = getSharedPreferences("retired_shelf_groups", 0)
@@ -135,6 +189,7 @@ class ResonanceApp : Application() {
         library.recoverDownloads()
         scope.launch {
             library.recoverInterrupted()
+            mirror.finishIfReady()
             startImport()
         }
     }
