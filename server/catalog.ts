@@ -13,7 +13,7 @@ export type DisplayName = { title: string; subtitle: string };
 /** Capabilities keep indexing independent of HTTP, filesystem APIs and probing executables. */
 export interface CatalogSource {
   discover(path: string, group: string, limit: number): Promise<CatalogLocation[]>;
-  info(path: string): Promise<{ size: number; modified: number }>;
+  info(path: string): Promise<{ size: number; modified: number; fileIdentity?: string }>;
   inspect(path: string, group: string): Promise<SourceRecord>;
 }
 export interface CatalogStore {
@@ -26,6 +26,9 @@ export class ShelfCatalog {
   private records: SourceRecord[] = [];
   private byId = new Map<string, SourceRecord>();
   private requestedAgain = false;
+  private sourceId: string | null = null;
+  private collectionNames: Record<string, string> = {};
+  private retiredHashes: string[] = [];
   text = "{}";
 
   constructor(
@@ -33,8 +36,21 @@ export class ShelfCatalog {
     private readonly maxFiles: number,
     private readonly source: CatalogSource,
     private readonly store: CatalogStore,
-    private readonly displayNames: ReadonlyMap<string, DisplayName> = new Map(),
+    private displayNames: ReadonlyMap<string, DisplayName> = new Map(),
   ) {}
+
+  updateDisplayNames(
+    names: ReadonlyMap<string, DisplayName>,
+    sourceId: string | null = null,
+    collectionNames: Record<string, string> = {},
+    retiredHashes: string[] = [],
+  ) {
+    this.displayNames = names;
+    this.sourceId = sourceId;
+    this.collectionNames = collectionNames;
+    this.retiredHashes = retiredHashes;
+    this.publish();
+  }
 
   async restore() {
     this.records = await this.store.load();
@@ -59,8 +75,13 @@ export class ShelfCatalog {
     const memberships = catalogMemberships(records, this.libraries);
     this.text = JSON.stringify({
       version: 1,
+      sourceId: this.sourceId,
+      collectionNames: this.collectionNames,
+      retiredHashes: this.retiredHashes,
       status: this.status,
-      items: [...this.byId.values()].map(({ path: _path, modified: _modified, ...record }) => ({
+      items: [...this.byId.values()].map((
+        { path: _path, modified: _modified, fileIdentity: _fileIdentity, ...record },
+      ) => ({
         ...record,
         sourceCount: counts.get(record.id),
         memberships: memberships.get(record.id) ?? [],
@@ -88,30 +109,39 @@ export class ShelfCatalog {
         }
       }
       this.status.total = candidates.length;
-      const paths = new Set(candidates.map((candidate) => candidate.path));
-      this.records = this.records.filter((record) => paths.has(record.path));
       const cached = new Map(this.records.map((record) => [record.path, record]));
+      const next: SourceRecord[] = [];
       for (const candidate of candidates) {
-        try {
-          const info = await this.source.info(candidate.path), old = cached.get(candidate.path);
-          if (!old || old.bytes !== info.size || old.modified !== info.modified) {
-            const record = await this.source.inspect(candidate.path, candidate.group);
-            this.records = this.records.filter((record) => record.path !== candidate.path);
-            this.records.push(record);
-          }
-        } catch (error) {
-          this.records = this.records.filter((record) => record.path !== candidate.path);
-          this.status.failures.push(
-            `${candidate.path.split("/").at(-1)}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          );
-        }
+        const info = await this.source.info(candidate.path), old = cached.get(candidate.path);
+        next.push(
+          !old || old.bytes !== info.size || old.modified !== info.modified ||
+            old.fileIdentity !== info.fileIdentity
+            ? await this.source.inspect(candidate.path, candidate.group)
+            : { ...old, group: candidate.group },
+        );
         this.status.completed++;
-        this.publish();
-        if (this.status.completed % 10 === 0) await this.store.save(this.records);
       }
-      await this.store.save(this.records);
+      // A partial or changing scan must never become a deletion authority.
+      const current: CatalogLocation[] = [];
+      for (const root of this.libraries) {
+        current.push(...await this.source.discover(root.path, root.name, this.maxFiles));
+      }
+      const signature = (rows: CatalogLocation[]) =>
+        rows.map((x) => `${x.group}\0${x.path}`).sort().join("\n");
+      if (signature(candidates) !== signature(current)) {
+        throw new Error("Library changed during scan");
+      }
+      for (const record of next) {
+        const info = await this.source.info(record.path);
+        if (
+          info.size !== record.bytes || info.modified !== record.modified ||
+          info.fileIdentity !== record.fileIdentity
+        ) {
+          throw new Error("Library changed during scan");
+        }
+      }
+      await this.store.save(next);
+      this.records = next;
       this.status.updated = new Date().toISOString();
     } catch (error) {
       this.status.failures.push(String(error));

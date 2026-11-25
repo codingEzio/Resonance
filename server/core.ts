@@ -25,6 +25,7 @@ export type SourceRecord = {
   filename: string;
   bytes: number;
   modified: number;
+  fileIdentity?: string;
   group: string;
   title: string;
   creator: string;

@@ -3,7 +3,7 @@ import { parseRange, privateHost, type SourceRecord } from "./core.ts";
 import { loadShelfConfig, projectFile } from "./config.ts";
 import { ShelfCatalog } from "./catalog.ts";
 import { FileCatalogStore } from "./catalog-store.ts";
-import { discoverMedia, inspectMedia } from "./media-source.ts";
+import { discoverMedia, fileIdentity, inspectMedia } from "./media-source.ts";
 import { loadOrCreateKey, lockProfile, requireLockSupport } from "./profile.ts";
 
 requireLockSupport();
@@ -14,6 +14,13 @@ await Deno.mkdir(stateDirectory, { recursive: true, mode: 0o700 });
 // Keep the open lock alive for the lifetime of the server process.
 const profileLock = await lockProfile(stateDirectory);
 const secret = await loadOrCreateKey(stateDirectory);
+const identityKey = await crypto.subtle.importKey(
+  "raw",
+  new TextEncoder().encode(secret),
+  { name: "HMAC", hash: "SHA-256" },
+  false,
+  ["sign"],
+);
 const lanAddresses = Deno.networkInterfaces().filter((n) =>
   n.family === "IPv4" && privateHost(n.address) && !n.address.startsWith("127.") &&
   !n.address.startsWith("169.254.")
@@ -24,15 +31,56 @@ let activeStreams = 0;
 const html = await Deno.readTextFile(new URL("./index.html", import.meta.url));
 const css = await Deno.readTextFile(new URL("./style.css", import.meta.url));
 const script = await Deno.readTextFile(new URL("./app.js", import.meta.url));
-const displayNames = new Map<string, { title: string; subtitle: string }>(
-  (config.displayNames
-    ? JSON.parse(await Deno.readTextFile(projectFile(config.displayNames))).items
-    : []).map(
-      (
-        row: { sha256: string; title: string; subtitle: string },
-      ) => [row.sha256, { title: row.title, subtitle: row.subtitle }],
-    ),
-);
+async function readDisplayNames() {
+  const library = config.libraries.length === 1 && config.libraries[0].role === "collections"
+    ? config.libraries[0]
+    : null;
+  let content: string | null = null;
+  let sourceSidecarLoaded = false;
+  if (library) {
+    try {
+      content = await Deno.readTextFile(`${library.path}/.resonance/display-names.json`);
+      sourceSidecarLoaded = true;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+  }
+  if (content === null && config.displayNames) {
+    content = await Deno.readTextFile(projectFile(config.displayNames));
+  }
+  const data = content === null ? { items: [] } : JSON.parse(content);
+  const rows = data.items;
+  if (!Array.isArray(rows)) throw new Error("Invalid display name catalog");
+  const names = new Map<string, { title: string; subtitle: string }>();
+  for (const row of rows) {
+    if (
+      !/^[a-f0-9]{64}$/.test(row.sha256) || typeof row.title !== "string" ||
+      typeof (row.subtitle ?? "") !== "string"
+    ) throw new Error("Invalid display name entry");
+    names.set(row.sha256, { title: row.title, subtitle: row.subtitle ?? "" });
+  }
+  const sourceId = sourceSidecarLoaded && typeof data.sourceId === "string" &&
+      /^[a-f0-9-]{36}$/.test(data.sourceId)
+    ? data.sourceId
+    : null;
+  const collectionNames: Record<string, string> = {};
+  if (
+    data.collections && typeof data.collections === "object" && !Array.isArray(data.collections)
+  ) {
+    for (const [name, title] of Object.entries(data.collections)) {
+      if (typeof title === "string") collectionNames[name] = title;
+    }
+  }
+  const retiredHashes = sourceSidecarLoaded ? data.retiredHashes ?? [] : [];
+  if (
+    !Array.isArray(retiredHashes) || retiredHashes.length > config.maxFiles ||
+    !retiredHashes.every((hash: unknown) => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash))
+  ) {
+    throw new Error("Invalid retired hash list");
+  }
+  return { names, sourceId, collectionNames, retiredHashes: [...new Set<string>(retiredHashes)] };
+}
+const displayNames = await readDisplayNames();
 const fonts = new Map<string, Uint8Array>();
 for (const name of ["geist", "geist_mono", "doto", "compact"]) {
   fonts.set(name, await Deno.readFile(projectFile(`app/src/main/res/font/${name}.ttf`)));
@@ -44,14 +92,24 @@ const catalog = new ShelfCatalog(
     discover: discoverMedia,
     info: async (path) => {
       const stat = await Deno.stat(path);
-      return { size: stat.size, modified: stat.mtime?.getTime() ?? 0 };
+      return {
+        size: stat.size,
+        modified: stat.mtime?.getTime() ?? 0,
+        fileIdentity: fileIdentity(stat),
+      };
     },
     inspect: (path, group) => inspectMedia(path, group, config),
   },
   new FileCatalogStore(stateDirectory),
-  displayNames,
+  displayNames.names,
 );
 await catalog.restore();
+catalog.updateDisplayNames(
+  displayNames.names,
+  displayNames.sourceId,
+  displayNames.collectionNames,
+  displayNames.retiredHashes,
+);
 function authenticated(req: Request) {
   const bearer = req.headers.get("authorization");
   const cookie = req.headers.get("cookie")?.split(";").map((s) => s.trim()).find((s) =>
@@ -74,7 +132,10 @@ async function media(req: Request, record: SourceRecord) {
     return json({ error: "Source path changed. Refresh the library." }, 409);
   }
   const stat = await Deno.stat(record.path);
-  if (stat.size !== record.bytes || stat.mtime?.getTime() !== record.modified) {
+  if (
+    stat.size !== record.bytes || stat.mtime?.getTime() !== record.modified ||
+    fileIdentity(stat) !== record.fileIdentity
+  ) {
     void catalog.scan();
     return json({ error: "Source changed. Refresh the library." }, 409);
   }
@@ -195,7 +256,23 @@ const server = Deno.serve({
     if (req.method === "GET" && url.pathname === "/health") {
       return json({ ok: true, service: "Resonance", indexing: catalog.status.active });
     }
+    if (req.method === "GET" && url.pathname === "/api/identity") {
+      const challenge = url.searchParams.get("challenge") ?? "";
+      if (!/^[a-f0-9]{32}$/.test(challenge)) return json({ error: "Invalid challenge" }, 400);
+      const signed = await crypto.subtle.sign(
+        "HMAC",
+        identityKey,
+        new TextEncoder().encode(challenge),
+      );
+      const proof = [...new Uint8Array(signed)].map((n) => n.toString(16).padStart(2, "0")).join(
+        "",
+      );
+      return json({ proof }, 200, { "cache-control": "no-store" });
+    }
     if (req.method === "GET" && url.pathname === "/api/local-pairing") {
+      if (Deno.env.get("RESONANCE_USB_SAFE") === "1") {
+        return json({ error: "Pair locally before starting USB sync" }, 403);
+      }
       return info.remoteAddr.hostname === "127.0.0.1" || info.remoteAddr.hostname === "::1"
         ? json({ key: secret })
         : json({ error: "Open this page on the Mac first" }, 403);
@@ -232,6 +309,30 @@ const server = Deno.serve({
     }
     if (!authenticated(req)) return json({ error: "Pair with this Mac to open its library" }, 401);
     if (req.method === "GET" && url.pathname === "/api/catalog") {
+      const names = await readDisplayNames();
+      catalog.updateDisplayNames(
+        names.names,
+        names.sourceId,
+        names.collectionNames,
+        names.retiredHashes,
+      );
+      return new Response(catalog.text, {
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+      });
+    }
+    if (req.method === "POST" && url.pathname === "/api/sync-catalog") {
+      if (catalog.status.active) return json({ error: "Scan in progress" }, 409);
+      await catalog.scan();
+      const names = await readDisplayNames();
+      catalog.updateDisplayNames(
+        names.names,
+        names.sourceId,
+        names.collectionNames,
+        names.retiredHashes,
+      );
+      if (catalog.status.active || catalog.status.failures.length) {
+        return json({ error: "Scan incomplete" }, 409);
+      }
       return new Response(catalog.text, {
         headers: { "content-type": "application/json", "cache-control": "no-store" },
       });

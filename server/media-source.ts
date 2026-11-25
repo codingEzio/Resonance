@@ -3,6 +3,10 @@ import { libraryPrefix, type SourceRecord } from "./core.ts";
 /** Read-only filesystem/tool adapter. The catalog owns scheduling and persistence. */
 export type ProbeTools = { ffprobe: string; shasum: string };
 
+export function fileIdentity(stat: Deno.FileInfo): string {
+  return `${stat.dev ?? ""}:${stat.ino ?? ""}:${stat.ctime?.getTime() ?? ""}`;
+}
+
 export async function discoverMedia(
   root: string,
   group: string,
@@ -16,7 +20,7 @@ export async function discoverMedia(
       const next = `${libraryPrefix(path)}${entry.name}`;
       if (entry.isDirectory) await walk(next);
       else if (
-        entry.isFile && /\.(mp4|m4a|mkv|webm|mp3|flac|ogg|opus|wav|aac)$/i.test(entry.name)
+        entry.isFile && /\.mp4$/i.test(entry.name)
       ) {
         if (found.length >= limit) throw new Error(`Configured ${limit}-file limit reached`);
         const real = await Deno.realPath(next);
@@ -61,7 +65,10 @@ export async function inspectMedia(
   if (!out.success) throw new Error("Metadata read failed");
   const data = JSON.parse(new TextDecoder().decode(out.stdout));
   const after = await Deno.stat(path);
-  if (before.size !== after.size || before.mtime?.getTime() !== after.mtime?.getTime()) {
+  if (
+    before.size !== after.size || before.mtime?.getTime() !== after.mtime?.getTime() ||
+    fileIdentity(before) !== fileIdentity(after)
+  ) {
     throw new Error("File changed during scan; refresh to retry");
   }
   const tags = data.format?.tags ?? {};
@@ -82,6 +89,7 @@ export async function inspectMedia(
     filename,
     bytes: after.size,
     modified: after.mtime?.getTime() ?? 0,
+    fileIdentity: fileIdentity(after),
     title: tags.title || filename.replace(/\.[^.]+$/, ""),
     creator: tags.artist || "",
     durationMs: Math.round(Number(data.format?.duration || 0) * 1000),
