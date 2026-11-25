@@ -22,7 +22,7 @@ internal fun rememberMotionPolicy(): MotionPolicy {
     return MotionPolicy(enabled = true, respectSystem = false, systemScale = 1f)
 }
 
-private object PlaybackAnimationScale : MotionDurationScale {
+internal object PlaybackAnimationScale : MotionDurationScale {
     override val scaleFactor = 1f
 }
 

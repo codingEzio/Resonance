@@ -9,6 +9,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,6 +29,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.WindowRecomposerPolicy
+import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.*
@@ -40,11 +47,15 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.sample
 
 class MainActivity : ComponentActivity() {
+    @OptIn(androidx.compose.ui.InternalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         (application as ResonanceApp).mac.incoming.value =
             intent.data?.takeIf { it.scheme == "resonance" && it.host == "connect" }
         enableEdgeToEdge()
+        WindowRecomposerPolicy.setFactory { root ->
+            root.createLifecycleAwareWindowRecomposer(PlaybackAnimationScale)
+        }
         setContent { Resonance(application as ResonanceApp) }
     }
 }
@@ -70,6 +81,7 @@ internal fun Resonance(app: ResonanceApp, initialScreen: String = "library") {
     val materialYou = true
     var librarySearchAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var libraryAvailabilityAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var libraryToolbarOwner by remember { mutableStateOf("") }
     fun navigate(target: String) {
         if (target != screen) {
             backStack = ArrayList(backStack + screen)
@@ -424,162 +436,186 @@ internal fun Resonance(app: ResonanceApp, initialScreen: String = "library") {
                         }
                     }
                 }
-                when {
-                    screen in listOf("permissions", "volume", "mac", "downloads", "features") ->
-                        FeatureScreen(
-                            screen,
-                            app,
-                            copy,
-                            entries,
-                            incoming,
-                            ::importFiles,
-                            ::download,
-                            { navigate("library") },
-                            actualVolume = p?.volume,
-                            playing = playing,
-                        )
-                    screen == "settings" ->
-                        SettingsScreen(
-                            app,
-                            copy,
-                            theme,
-                            face,
-                            language,
-                            { navigate(it) },
-                            {
-                                preferences.set(AppSettings.Theme, it)
-                            },
-                            {
-                                preferences.set(AppSettings.Font, it)
-                            },
-                            {
-                                preferences.set(AppSettings.Language, it)
-                            },
-                        )
-                    screen == "now" ->
-                        NowPlaying(
-                            copy,
-                            p,
-                            currentEntry,
-                            position,
-                            revision,
-                            { navigate("details:${it}") },
-                            motion,
-                            ::back,
-                            fullScreen,
-                            {
-                                preferences.set(
-                                    AppSettings.FullScreen,
-                                    !fullScreen,
-                                    synchronous = true,
+                AnimatedContent(
+                    targetState = screen,
+                    transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+                    label = "screen transition",
+                ) { shownScreen ->
+                    Column(Modifier.fillMaxSize()) {
+                        when {
+                            shownScreen in
+                                listOf("permissions", "volume", "mac", "downloads", "features") ->
+                                FeatureScreen(
+                                    shownScreen,
+                                    app,
+                                    copy,
+                                    entries,
+                                    incoming,
+                                    ::importFiles,
+                                    ::download,
+                                    { navigate("library") },
+                                    actualVolume = p?.volume,
+                                    playing = playing,
                                 )
-                            },
-                            { navigate("volume") },
-                            {
-                                navigate(
-                                    backStack.lastOrNull {
-                                        it == "library" || it.startsWith("playlist:")
-                                    } ?: "library"
+                            shownScreen == "settings" ->
+                                SettingsScreen(
+                                    app,
+                                    copy,
+                                    theme,
+                                    face,
+                                    language,
+                                    { navigate(it) },
+                                    {
+                                        preferences.set(AppSettings.Theme, it)
+                                    },
+                                    {
+                                        preferences.set(AppSettings.Font, it)
+                                    },
+                                    {
+                                        preferences.set(AppSettings.Language, it)
+                                    },
                                 )
-                            },
-                        )
-                    screen.startsWith("details:") -> {
-                        val entry = entries.find {
-                            it.id == screen.substringAfter(':').toLongOrNull()
-                        }
-                        if (entry != null) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    copy[if (entry.remote) "on_mac" else "on_device"],
-                                    Modifier.weight(1f),
-                                    style = MaterialTheme.typography.labelMedium,
-                                )
-                                if (entry.remote)
-                                    TextButton(onClick = { download(entry.id) }) {
-                                        Text(copy["download"])
-                                    }
-                            }
-                            if (entry.sourceCount > 1)
-                                Text(
-                                    "${entry.sourceCount} ${copy["source_count"]}",
-                                    Modifier.padding(horizontal = 24.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            DetailsScreen(
-                                entry,
-                                copy,
-                                { index ->
-                                    val start = entry.cues.getOrNull(index)?.startMs ?: 0L
-                                    if (
-                                        p?.currentMediaItem
-                                            ?.mediaMetadata
-                                            ?.extras
-                                            ?.getLong("entry") == entry.id
-                                    ) {
-                                        p.seekTo(start)
-                                        p.play()
-                                        navigate("now")
-                                    } else play(playbackItems(entry), startMs = start)
-                                },
-                                { play(playbackItems(entry), append = true) },
-                                { cues ->
-                                    scope.launch(Dispatchers.IO) {
-                                        app.library.saveCues(entry.id, cues)
-                                    }
-                                },
-                            )
-                        }
-                    }
-                    else -> {
-                        pageState.SaveableStateProvider(screen) {
-                            LibraryScreen(
-                                entries,
-                                copy,
-                                loaded,
-                                screen
-                                    .takeIf { it.startsWith("playlist:") }
-                                    ?.substringAfter("playlist:"),
-                                sourceFilter,
-                                { sourceFilter = it },
-                                controller != null,
-                                { navigate("playlist:$it") },
-                                { navigate("details:$it") },
-                                { selected, index, append ->
-                                    if (selected.isNotEmpty())
-                                        play(selected.flatMap(::playbackItems), index, append)
-                                },
-                                { selected ->
-                                    if (selected.isNotEmpty())
-                                        play(
-                                            selected.flatMap(::playbackItems),
-                                            append = true,
-                                            atEnd = true,
+                            shownScreen == "now" ->
+                                NowPlaying(
+                                    copy,
+                                    p,
+                                    currentEntry,
+                                    position,
+                                    revision,
+                                    { navigate("details:${it}") },
+                                    motion,
+                                    ::back,
+                                    fullScreen,
+                                    {
+                                        preferences.set(
+                                            AppSettings.FullScreen,
+                                            !fullScreen,
+                                            synchronous = true,
                                         )
-                                },
-                                ::importFiles,
-                                { scope.launch(Dispatchers.IO) { app.library.cancelPending() } },
-                                { id ->
-                                    scope.launch(Dispatchers.IO) {
-                                        try {
-                                            app.library.retry(id)
-                                            app.startImport()
-                                        } catch (e: Exception) {
-                                            withContext(Dispatchers.Main) {
-                                                message =
-                                                    if (e.message == "capacity") "capacity"
-                                                    else "import_failed"
+                                    },
+                                    { navigate("volume") },
+                                    {
+                                        navigate(
+                                            backStack.lastOrNull {
+                                                it == "library" || it.startsWith("playlist:")
+                                            } ?: "library"
+                                        )
+                                    },
+                                )
+                            shownScreen.startsWith("details:") -> {
+                                val entry = entries.find {
+                                    it.id == shownScreen.substringAfter(':').toLongOrNull()
+                                }
+                                if (entry != null) {
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            copy[if (entry.remote) "on_mac" else "on_device"],
+                                            Modifier.weight(1f),
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
+                                        if (entry.remote)
+                                            TextButton(onClick = { download(entry.id) }) {
+                                                Text(copy["download"])
                                             }
-                                        }
                                     }
-                                },
-                                toolbarActions = { search, availability ->
-                                    librarySearchAction = search
-                                    libraryAvailabilityAction = availability
-                                },
-                            )
+                                    if (entry.sourceCount > 1)
+                                        Text(
+                                            "${entry.sourceCount} ${copy["source_count"]}",
+                                            Modifier.padding(horizontal = 24.dp),
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    DetailsScreen(
+                                        entry,
+                                        copy,
+                                        { index ->
+                                            val start = entry.cues.getOrNull(index)?.startMs ?: 0L
+                                            if (
+                                                p?.currentMediaItem
+                                                    ?.mediaMetadata
+                                                    ?.extras
+                                                    ?.getLong("entry") == entry.id
+                                            ) {
+                                                p.seekTo(start)
+                                                p.play()
+                                                navigate("now")
+                                            } else play(playbackItems(entry), startMs = start)
+                                        },
+                                        { play(playbackItems(entry), append = true) },
+                                        { cues ->
+                                            scope.launch(Dispatchers.IO) {
+                                                app.library.saveCues(entry.id, cues)
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                            else -> {
+                                pageState.SaveableStateProvider(shownScreen) {
+                                    LibraryScreen(
+                                        entries,
+                                        copy,
+                                        loaded,
+                                        shownScreen
+                                            .takeIf { it.startsWith("playlist:") }
+                                            ?.substringAfter("playlist:"),
+                                        sourceFilter,
+                                        { sourceFilter = it },
+                                        controller != null,
+                                        { navigate("playlist:$it") },
+                                        { navigate("details:$it") },
+                                        { selected, index, append ->
+                                            if (selected.isNotEmpty())
+                                                play(
+                                                    selected.flatMap(::playbackItems),
+                                                    index,
+                                                    append,
+                                                )
+                                        },
+                                        { selected ->
+                                            if (selected.isNotEmpty())
+                                                play(
+                                                    selected.flatMap(::playbackItems),
+                                                    append = true,
+                                                    atEnd = true,
+                                                )
+                                        },
+                                        ::importFiles,
+                                        {
+                                            scope.launch(Dispatchers.IO) {
+                                                app.library.cancelPending()
+                                            }
+                                        },
+                                        { id ->
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    app.library.retry(id)
+                                                    app.startImport()
+                                                } catch (e: Exception) {
+                                                    withContext(Dispatchers.Main) {
+                                                        message =
+                                                            if (e.message == "capacity") "capacity"
+                                                            else "import_failed"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        toolbarActions = { search, availability ->
+                                            if (search != null || availability != null) {
+                                                libraryToolbarOwner = shownScreen
+                                                librarySearchAction = search
+                                                libraryAvailabilityAction = availability
+                                            } else if (libraryToolbarOwner == shownScreen) {
+                                                libraryToolbarOwner = ""
+                                                librarySearchAction = null
+                                                libraryAvailabilityAction = null
+                                            }
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
