@@ -1,5 +1,9 @@
 package dev.resonance
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 /** Immutable display data; source filenames, content identities and embedded tags stay separate. */
 data class DisplayName(val title: String, val subtitle: String = "")
 
@@ -48,10 +52,24 @@ private fun <T> Map<String, T>.matchCollection(key: String): T? =
  * One startup-installed snapshot backs the existing presentation facade; never a data authority.
  */
 internal object LibraryPresentation {
-    var catalog: PresentationCatalog = PresentationCatalog()
+    var catalog: PresentationCatalog by mutableStateOf(PresentationCatalog())
         private set
 
+    private var bundled: PresentationCatalog = PresentationCatalog()
+
     fun install(value: PresentationCatalog) {
+        bundled = value
         catalog = value
+    }
+
+    fun updateNames(
+        names: Map<String, DisplayName>,
+        collections: Map<String, String> = emptyMap(),
+    ) {
+        catalog =
+            bundled.copy(
+                names = bundled.names + names,
+                collectionNames = bundled.collectionNames + collections,
+            )
     }
 }

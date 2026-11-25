@@ -10,20 +10,26 @@ data class Cue(
 data class LibraryLocation(val group: String, val folder: String, val role: String = "") {
     val key: String
         get() = "$group/$folder"
+
     val navigationKey: String
         get() = portableNavigationKey(this)
 }
 
 fun portableNavigationKey(location: LibraryLocation): String =
-    "source-v2:" + location.group.map { it.code.toString(16).padStart(4, '0') }.joinToString("") +
-        ":" + location.folder.map { it.code.toString(16).padStart(4, '0') }.joinToString("")
+    "source-v2:" +
+        location.group.map { it.code.toString(16).padStart(4, '0') }.joinToString("") +
+        ":" +
+        location.folder.map { it.code.toString(16).padStart(4, '0') }.joinToString("")
 
 /** Resolve saved old routes only when they identify exactly one current location. */
 fun resolvePortablePlaylistKey(requested: String?, locations: List<LibraryLocation>): String? {
     if (requested == null) return null
-    val matches = locations.distinctBy { it.group to it.folder }.filter {
-        it.key == requested || portableNavigationKey(it) == requested
-    }
+    val matches =
+        locations
+            .distinctBy { it.group to it.folder }
+            .filter {
+                it.key == requested || portableNavigationKey(it) == requested
+            }
     return when (matches.size) {
         0 -> requested
         1 -> portableNavigationKey(matches.single())
@@ -59,6 +65,7 @@ data class MediaEntry(
     val sourceCount: Int = 1,
     val locations: List<LibraryLocation> = emptyList(),
     val remoteAvailable: Boolean = remote,
+    val syncedDisplayName: DisplayName? = null,
 )
 
 object ChapterRules {

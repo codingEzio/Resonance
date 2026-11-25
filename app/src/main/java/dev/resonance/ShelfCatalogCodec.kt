@@ -5,7 +5,16 @@ import org.json.JSONObject
 /** Protocol parsing is separate from fetching, pairing and committing source entries. */
 object ShelfCatalogCodec {
     fun decode(json: String): List<MediaEntry> {
-        val array = JSONObject(json).getJSONArray("items")
+        val payload = JSONObject(json)
+        val status = payload.getJSONObject("status")
+        require(
+            !status.getBoolean("active") &&
+                status.getJSONArray("failures").length() == 0 &&
+                status.getString("updated").isNotBlank()
+        ) {
+            "catalog_incomplete"
+        }
+        val array = payload.getJSONArray("items")
         require(array.length() <= MediaLimits.CATALOG_ITEMS) { "capacity" }
         val entries =
             (0 until array.length()).map { index ->
@@ -25,6 +34,10 @@ object ShelfCatalogCodec {
                     bytes = item.getLong("bytes"),
                     state = "ready",
                     contentHash = hash,
+                    syncedDisplayName =
+                        item.optJSONObject("displayName")?.let {
+                            DisplayName(it.getString("title"), it.optString("subtitle"))
+                        },
                     locations =
                         item.optJSONArray("memberships")?.let { decodeLocations(it.toString()) }
                             ?: item
