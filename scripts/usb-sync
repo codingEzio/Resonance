@@ -25,11 +25,13 @@ x=json.load(open(p)); roots=x.get('libraries',[])
 if len(roots)!=1 or roots[0].get('role') != 'collections':
  raise SystemExit('Shelf must contain exactly one collections-role library before USB sync.')
 PY
-RESONANCE_BIND=127.0.0.1 RESONANCE_PORT=$port RESONANCE_STANDALONE=1 ./scripts/serve &
+RESONANCE_BIND=127.0.0.1 RESONANCE_PORT=$port RESONANCE_STANDALONE=1 RESONANCE_USB_SAFE=1 ./scripts/serve &
 pid=$!
-cleanup() { adb -s "$serial" reverse --remove tcp:$port >/dev/null 2>&1 || true; kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
+owned_reverse=0
+cleanup() { if (( owned_reverse )); then adb -s "$serial" reverse --remove tcp:$port >/dev/null 2>&1 || true; fi; kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
 trap cleanup EXIT INT TERM
-adb -s "$serial" reverse tcp:$port tcp:$port >/dev/null
+adb -s "$serial" reverse --no-rebind tcp:$port tcp:$port >/dev/null
+owned_reverse=1
 for i in {1..60}; do
   if curl --noproxy '*' -fsS "http://127.0.0.1:$port/health" 2>/dev/null | grep -q '"indexing":false'; then break; fi
   kill -0 "$pid" 2>/dev/null || { print -u2 'Shelf failed to start.'; exit 1; }

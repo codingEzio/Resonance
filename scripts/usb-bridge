@@ -1,0 +1,27 @@
+#!/bin/zsh
+set -euo pipefail
+cd "${0:A:h:h}"
+
+adb=${RESONANCE_ADB:-$HOME/Library/Android/sdk/platform-tools/adb}
+[[ -x "$adb" ]] || adb=${commands[adb]:-}
+[[ -x "$adb" ]] || { print -u2 'Android platform-tools are required.'; exit 69; }
+[[ -r Local/resonance-usb-device ]] || { print -u2 'Configure Local/resonance-usb-device first.'; exit 66; }
+serial=$(<Local/resonance-usb-device)
+[[ -n "$serial" ]] || exit 65
+owned=0
+cleanup() {
+  if (( owned )); then "$adb" -s "$serial" reverse --remove tcp:10002 >/dev/null 2>&1 || true; fi
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM
+while true; do
+  "$adb" -s "$serial" wait-for-usb-device
+  owned=0
+  if "$adb" -s "$serial" reverse --no-rebind tcp:10002 tcp:10002 >/dev/null 2>&1; then
+    owned=1
+  else
+    print -u2 'USB port 10002 is already forwarded; leaving it unchanged.'
+  fi
+  "$adb" -s "$serial" wait-for-usb-disconnect || true
+  owned=0
+done

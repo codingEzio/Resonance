@@ -16,9 +16,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +40,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var syncing by remember { mutableStateOf(false) }
     var syncStatus by remember { mutableStateOf("") }
+    val mirrorStatus by app.mirror.status.collectAsState()
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)
     ) {
@@ -178,22 +177,17 @@ fun SettingsScreen(
         SettingsDivider()
         SectionLabel(listOf("Sync", "同步", "同步")[copy.languageIndex])
         Button(
-            enabled = !syncing,
+            enabled = !syncing && mirrorStatus != "syncing",
             onClick = {
                 syncing = true
+                syncStatus = ""
+                app.mirror.status.value = "syncing"
                 scope.launch {
                     try {
-                        var catalog: List<MediaEntry> = emptyList()
-                        withContext(Dispatchers.IO) {
-                            app.mac.connect(app.mac.base, app.mac.key) { items ->
-                                app.library.acceptRemote(items)
-                                catalog = items
-                            }
-                        }
-                        val added = app.syncConnectedCatalog(catalog)
-                        syncStatus =
-                            listOf("Queued: $added", "已排入：$added", "已排入：$added")[copy.languageIndex]
+                        app.syncFrom()
+                        syncStatus = ""
                     } catch (error: Exception) {
+                        app.mirror.status.value = "retry"
                         syncStatus =
                             if (error.message == "storage_full")
                                 listOf("Not enough storage.", "儲存空間不足。", "存储空间不足。")[
@@ -212,7 +206,22 @@ fun SettingsScreen(
         ) {
             Text(listOf("Sync now", "立即同步", "立即同步")[copy.languageIndex])
         }
-        if (syncStatus.isNotEmpty()) Text(syncStatus, style = MaterialTheme.typography.bodySmall)
+        val message = syncStatus.ifEmpty {
+            when (mirrorStatus) {
+                "syncing" -> listOf("Syncing…", "同步中…", "同步中…")[copy.languageIndex]
+                "complete" -> listOf("Synced", "已同步", "已同步")[copy.languageIndex]
+                "waiting" ->
+                    listOf("Waiting for playback to finish.", "等待播放結束。", "等待播放结束。")[
+                        copy.languageIndex]
+                "retry" ->
+                    listOf("Sync interrupted. Retry.", "同步中斷，請重試。", "同步中断，请重试。")[copy.languageIndex]
+                else -> ""
+            }
+        }
+        androidx.compose.animation.AnimatedContent(targetState = message, label = "sync status") {
+            text ->
+            if (text.isNotEmpty()) Text(text, style = MaterialTheme.typography.bodySmall)
+        }
         SettingsLink(copy["downloads"], "") { navigate("downloads") }
         SettingsDivider()
         SectionLabel(refinementText(copy, "more"))

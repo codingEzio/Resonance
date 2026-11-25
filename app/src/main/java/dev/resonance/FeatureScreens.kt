@@ -187,15 +187,14 @@ fun FeatureScreen(
                     scope.launch {
                         app.mac.busy.value = true
                         try {
-                            var catalog: List<MediaEntry> = emptyList()
-                            withContext(Dispatchers.IO) {
-                                app.mac.connect(address, key) { items ->
-                                    app.library.acceptRemote(items)
-                                    catalog = items
+                            if (incoming?.getQueryParameter("sync") == "1") {
+                                app.syncFrom(address, key)
+                            } else
+                                withContext(Dispatchers.IO) {
+                                    app.mac.connect(address, key) { items ->
+                                        app.library.acceptRemote(items)
+                                    }
                                 }
-                            }
-                            if (incoming?.getQueryParameter("sync") == "1")
-                                app.syncConnectedCatalog(catalog)
                             val hash = incoming?.getQueryParameter("download")
                             if (hash != null) {
                                 val target =
